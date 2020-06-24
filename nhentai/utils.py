@@ -230,11 +230,13 @@ def format_metadata(doujinshi_obj=None):
         m_id = str(doujinshi_obj.id)
         m_language = ''
         m_author = ''
+        m_parodies = ''
         m_characters = ''
         m_tags = ''
 
         m_languagelist = doujinshi_obj.info.languages.split(', ')
         m_authorlist = doujinshi_obj.info.artists.split(', ')
+        m_parodieslist = doujinshi_obj.info.parodies.split(', ')
         m_characterslist = doujinshi_obj.info.characters.split(', ')
         m_tagslist = doujinshi_obj.info.tags.split(', ')
 
@@ -242,6 +244,8 @@ def format_metadata(doujinshi_obj=None):
             m_language += '\t\t<li>{}</li>\n'.format(language)
         for author in m_authorlist:
             m_author += '\t\t<li>{}</li>\n'.format(author)
+        for parodies in m_parodieslist:
+            m_parodies += '\t\t<li>{}</li>\n'.format(parodies)
         for characters in m_characterslist:
             m_characters += '\t\t<li>{}</li>\n'.format(characters)
         for tags in m_tagslist:
@@ -253,6 +257,7 @@ def format_metadata(doujinshi_obj=None):
             m_id = m_id.encode('utf-8')
             m_language = m_language.encode('utf-8')
             m_author = m_author.encode('utf-8')
+            m_parodies = m_parodies.encode('utf-8')
             m_characters = m_characters.encode('utf-8')
             m_tags = m_tags.encode('utf-8')
     else:
@@ -260,10 +265,11 @@ def format_metadata(doujinshi_obj=None):
         m_title = 'ERROR'
         m_language = '\t\t<li>ERROR</li>\n'
         m_author = '\t\t<li>ERROR</li>\n'
+        m_parodies = '\t\t<li>ERROR</li>\n'
         m_characters = '\t\t<li>ERROR</li>\n'
         m_tags = '\t\t<li>ERROR</li>\n'
 
-    return metadata.format(M_TITLEEN=m_titleen, M_TITLE=m_title, M_ID=m_id, M_LANGUAGE=m_language, M_AUTHOR=m_author, M_CHARACTERS=m_characters, M_TAGS=m_tags)  
+    return metadata.format(M_TITLEEN=m_titleen, M_TITLE=m_title, M_ID=m_id, M_LANGUAGE=m_language, M_AUTHOR=m_author, M_PARODIES = m_parodies, M_CHARACTERS=m_characters, M_TAGS=m_tags)  
 
 def generate_index(output_dir='./', doujinshi_list=None):
     if doujinshi_list is not None:
