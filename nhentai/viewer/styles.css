@@ -79,4 +79,11 @@ html, body {
     #metadata-panel {
         width: 300px;
         margin-left: 20px;
-}
+    }
+
+    .btn-group button {
+        display: block;
+        cursor: pointer;
+        padding: 5px 5px;
+        width: 100px;
+    }

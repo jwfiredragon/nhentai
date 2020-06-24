@@ -1,6 +1,7 @@
 const pages = Array.from(document.querySelectorAll('img.image-item'));
 let currentPage = 0;
 let showMetadata = 0;
+let fitHeight = 1;
 
 function openMetadata() {
     var metadataPanel = document.getElementById("metadata-panel");
@@ -10,6 +11,22 @@ function openMetadata() {
     } else {
         metadataPanel.style.display = "block";
         showMetadata = 1;
+    }
+}
+
+function changeHeight() {
+    var imageContainer = document.getElementById("image-container");
+    var list = document.getElementById("list");
+    if (fitHeight == 1) {
+        imageContainer.style.maxHeight = "100vh";
+        dest.style.maxHeight = "100vh";
+        list.style.maxHeight = "100vh";
+        fitHeight = 0;
+    } else {
+        imageContainer.style.maxHeight = "none";
+        dest.style.maxHeight = "none";
+        list.style.maxHeight = "none";
+        fitHeight = 1;
     }
 }
 
