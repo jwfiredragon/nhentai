@@ -10,9 +10,11 @@ import string
 import zipfile
 import shutil
 import requests
+import sqlite3
 
 from nhentai import constant
 from nhentai.logger import logger
+from nhentai.serializer import serialize, set_js_database
 
 
 def request(method, url, **kwargs):
@@ -81,21 +83,20 @@ def generate_html(output_dir='.', doujinshi_obj=None):
 
         image_html += '<img src="{0}" class="image-item"/>\n'\
             .format(image)
-
     html = readfile('viewer/index.html')
     css = readfile('viewer/styles.css')
     js = readfile('viewer/scripts.js')
     metadata = format_metadata(doujinshi_obj)
 
     if doujinshi_obj is not None:
-        title = doujinshi_obj.name
-
+        serialize(doujinshi_obj, doujinshi_dir)
+        name = doujinshi_obj.name
         if sys.version_info < (3, 0):
-            title = title.encode('utf-8')
+            name = doujinshi_obj.name.encode('utf-8')
     else:
-        title = 'nHentai HTML Viewer'
+        name = {'title': 'nHentai HTML Viewer'}
 
-    data = html.format(TITLE=title, IMAGES=image_html, SCRIPTS=js, STYLES=css, METADATA=metadata)
+    data = html.format(TITLE=name, IMAGES=image_html, SCRIPTS=js, STYLES=css, METADATA=metadata)
     try:
         if sys.version_info < (3, 0):
             with open(os.path.join(doujinshi_dir, 'index.html'), 'w') as f:
@@ -115,11 +116,12 @@ def generate_main_html(output_dir='./'):
     Default output folder will be the CLI path.
     """
 
-    count = 0
     image_html = ''
+
     main = readfile('viewer/main.html')
     css = readfile('viewer/main.css')
-    scripts = readfile('viewer/mainscripts.js')
+    js = readfile('viewer/main.js')
+
     element = '\n\
             <div class="gallery-favorite">\n\
                 <div class="gallery" data-metadata="{METADATA}">\n\
@@ -134,12 +136,10 @@ def generate_main_html(output_dir='./'):
     doujinshi_dirs = next(os.walk('.'))[1]
 
     for folder in doujinshi_dirs:
-
         files = os.listdir(folder)
         files.sort()
 
         if 'index.html' in files:
-            count += 1
             logger.info('Add doujinshi \'{}\''.format(folder))
             metadata = extract_metadata('./{}/index.html'.format(folder))
         else:
@@ -158,13 +158,15 @@ def generate_main_html(output_dir='./'):
         logger.warning('None index.html found, --gen-main paused.')
         return
     try:
-        data = main.format(STYLES=css, COUNT=count, PICTURE=image_html, SCRIPTS=scripts)
+        data = main.format(STYLES=css, COUNT=count, SCRIPTS=js, PICTURE=image_html)
         if sys.version_info < (3, 0):
             with open('./main.html', 'w') as f:
                 f.write(data)
         else:
             with open('./main.html', 'wb') as f:
                 f.write(data.encode('utf-8'))
+        shutil.copy(os.path.dirname(__file__)+'/viewer/logo.png', './')
+        set_js_database()
         logger.log(
             15, 'Main Viewer has been write to \'{0}main.html\''.format(output_dir))
     except Exception as e:
@@ -211,7 +213,7 @@ an invalid filename.
         filename = filename[:100] + '...]'
 
     # Remove [] from filename
-    filename = filename.replace('[]', '')
+    filename = filename.replace('[]', '').strip()
     return filename
 
 
@@ -290,3 +292,28 @@ def extract_metadata(indexpath):
         metadata += ' ' + tag
 
     return metadata.replace('"', '\'')
+class DB(object):
+    conn = None
+    cur = None
+
+    def __enter__(self):
+        self.conn = sqlite3.connect(constant.NHENTAI_HISTORY)
+        self.cur = self.conn.cursor()
+        self.cur.execute('CREATE TABLE IF NOT EXISTS download_history (id text)')
+        self.conn.commit()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.conn.close()
+
+    def clean_all(self):
+        self.cur.execute('DELETE FROM download_history WHERE 1')
+        self.conn.commit()
+
+    def add_one(self, data):
+        self.cur.execute('INSERT INTO download_history VALUES (?)', [data])
+        self.conn.commit()
+
+    def get_all(self):
+        data = self.cur.execute('SELECT id FROM download_history')
+        return [i[0] for i in data]
