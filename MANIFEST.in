@@ -7,3 +7,4 @@ include nhentai/viewer/main.html
 include nhentai/viewer/main.css
 include nhentai/viewer/metadata.html
 include nhentai/viewer/main.js
+include nhentai/viewer/logo.png

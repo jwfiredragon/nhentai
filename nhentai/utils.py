@@ -116,6 +116,7 @@ def generate_main_html(output_dir='./'):
     Default output folder will be the CLI path.
     """
 
+    count = 0
     image_html = ''
 
     main = readfile('viewer/main.html')
@@ -124,7 +125,7 @@ def generate_main_html(output_dir='./'):
 
     element = '\n\
             <div class="gallery-favorite">\n\
-                <div class="gallery" data-metadata="{METADATA}">\n\
+                <div class="gallery">\n\
                     <a href="./{FOLDER}/index.html" class="cover" style="padding:0 0 141.6% 0"><img\n\
                             src="./{FOLDER}/{IMAGE}" />\n\
                         <div class="caption">{TITLE}</div>\n\
@@ -140,10 +141,9 @@ def generate_main_html(output_dir='./'):
         files.sort()
 
         if 'index.html' in files:
+            count += 1
             logger.info('Add doujinshi \'{}\''.format(folder))
-            metadata = extract_metadata('./{}/index.html'.format(folder))
         else:
-            metadata = ''
             continue
 
         image = files[0]  # 001.jpg or 001.png
@@ -152,7 +152,7 @@ def generate_main_html(output_dir='./'):
         else:
             title = 'nHentai HTML Viewer'
 
-        image_html += element.format(METADATA=metadata, FOLDER=folder, IMAGE=image, TITLE=title)
+        image_html += element.format(FOLDER=folder, IMAGE=image, TITLE=title)
 
     if image_html == '':
         logger.warning('None index.html found, --gen-main paused.')
@@ -275,23 +275,6 @@ def generate_index(output_dir='./', doujinshi_list=None):
     else:
         logger.error('No doujinshi list detected')
 
-def extract_metadata(indexpath):
-    indexfile = open(indexpath, 'r', encoding='utf-8')
-    indexcontent = indexfile.read()
-    index = BeautifulSoup(indexcontent, 'html.parser')
-
-    metadata = index.select('#metadata-id')[0].string + ' ' + index.select('#metadata-titleEN')[0].string
-
-    for language in index.select('#metadata-language')[0].stripped_strings:
-        metadata += ' ' + language
-    for author in index.select('#metadata-author')[0].stripped_strings:
-        metadata += ' ' + author
-    for character in index.select('#metadata-characters')[0].stripped_strings:
-        metadata += ' ' + character
-    for tag in index.select('#metadata-tags')[0].stripped_strings:
-        metadata += ' ' + tag
-
-    return metadata.replace('"', '\'')
 class DB(object):
     conn = None
     cur = None
