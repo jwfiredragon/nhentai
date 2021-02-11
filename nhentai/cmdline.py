@@ -17,7 +17,7 @@ from nhentai.logger import logger
 
 
 def banner():
-    logger.info(u'''nHentai ver %s: あなたも変態。 いいね?
+    logger.debug(u'''nHentai ver %s
        _   _            _        _
  _ __ | | | | ___ _ __ | |_ __ _(_)
 | '_ \| |_| |/ _ \ '_ \| __/ _` | |
