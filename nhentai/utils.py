@@ -246,7 +246,7 @@ def format_filename(s):
     ban_chars = '\\\'/:,;*?"<>|\t'
     filename = s.translate(str.maketrans(ban_chars, ' '*len(ban_chars))).strip()
     filename = ' '.join(filename.split())
-    print(repr(filename))
+    logger.info('File name: ' + repr(filename))
 
     while filename.endswith('.'):
         filename = filename[:-1]
