@@ -91,7 +91,7 @@ def generate_html(output_dir='.', doujinshi_obj=None, template='default'):
     else:
         name = {'title': 'nHentai HTML Viewer'}
 
-    data = html.format(TITLE=name, IMAGES=image_html, SCRIPTS=js, STYLES=css)
+    data = html.format(TITLE=name, IMAGES=image_html, SCRIPTS=js, STYLES=css, METADATA='')
     try:
         if sys.version_info < (3, 0):
             with open(os.path.join(doujinshi_dir, 'index.html'), 'w') as f:
@@ -131,12 +131,15 @@ def generate_main_html(output_dir='./'):
     os.chdir(output_dir)
     doujinshi_dirs = next(os.walk('.'))[1]
 
+    count = 0
+
     for folder in doujinshi_dirs:
         files = os.listdir(folder)
         files.sort()
 
         if 'index.html' in files:
             logger.info('Add doujinshi \'{}\''.format(folder))
+            count += 1
         else:
             continue
 
@@ -151,7 +154,7 @@ def generate_main_html(output_dir='./'):
         logger.warning('No index.html found, --gen-main paused.')
         return
     try:
-        data = main.format(STYLES=css, SCRIPTS=js, PICTURE=image_html)
+        data = main.format(STYLES=css, SCRIPTS=js, PICTURE=image_html, COUNT='{} items'.format(count))
         if sys.version_info < (3, 0):
             with open('./main.html', 'w') as f:
                 f.write(data)
@@ -305,3 +308,13 @@ class DB(object):
     def get_all(self):
         data = self.cur.execute('SELECT id FROM download_history')
         return [i[0] for i in data]
+
+def generate_index(output_dir='./', doujinshi_list=None):
+    if doujinshi_list is not None:
+        for doujinshi_obj in doujinshi_list:
+            if os.path.exists(os.path.join(output_dir, doujinshi_obj.filename)):
+                generate_html(output_dir, doujinshi_obj)
+            else:
+                logger.warning('Gallery {} does not exist, skipped'.format(doujinshi_obj.filename))
+    else:
+        logger.error('No doujinshi list detected')

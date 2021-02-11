@@ -157,6 +157,11 @@ Other options:
       -P --pdf              generate PDF file
       --rm-origin-dir       remove downloaded doujinshi dir when generated CBZ
                             or PDF file.
+      --gen-index=ID        generate index.html for gallery IDs
+      --gen-index-f=FILE    generate index.html for gallery IDs in file
+
+      NOTE: --gen-index and --gen-index-f only work for existing folders.
+            Please set --format to match format of folders.
 
       # nHentai options
       --cookie=COOKIE       set cookie of nhentai to bypass Google recaptcha
