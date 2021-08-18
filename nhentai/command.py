@@ -13,8 +13,8 @@ from nhentai.doujinshi import Doujinshi
 from nhentai.downloader import Downloader
 from nhentai.logger import logger
 from nhentai.constant import BASE_URL
-from nhentai.utils import generate_html, generate_cbz, generate_main_html, generate_pdf, \
-    paging, check_cookie, signal_handler, DB, generate_index
+from nhentai.utils import generate_html, generate_cbz, generate_main_html, generate_pdf, generate_metadata_file, \
+    paging, check_cookie, signal_handler, DB
 
 
 def main():
@@ -93,6 +93,13 @@ def main():
                 doujinshi.downloader = downloader
                 doujinshi.download()
 
+            doujinshi.downloader = downloader
+            doujinshi.download()
+
+            if options.generate_metadata:
+                table = doujinshi.table
+                generate_metadata_file(options.output_dir, table, doujinshi)
+
             if options.is_save_download_history:
                 with DB() as db:
                     db.add_one(doujinshi.id)
@@ -120,7 +127,6 @@ def main():
 
 
 signal.signal(signal.SIGINT, signal_handler)
-
 
 if __name__ == '__main__':
     main()

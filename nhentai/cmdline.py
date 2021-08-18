@@ -86,7 +86,7 @@ def cmd_parser():
                       help='slow down between downloading every doujinshi')
     parser.add_option('--proxy', type='string', dest='proxy', action='store',
                       help='store a proxy, for example: -p \'http://127.0.0.1:1080\'')
-    parser.add_option('--file',  '-f', type='string', dest='file', action='store', help='read gallery IDs from file.')
+    parser.add_option('--file', '-f', type='string', dest='file', action='store', help='read gallery IDs from file.')
     parser.add_option('--format', type='string', dest='name_format', action='store',
                       help='format the saved folder name', default='%i')
     parser.add_option('--dry-run', '-r', action='store_true', dest='dryrun', help='Dry run, skip file download.')
@@ -108,6 +108,8 @@ def cmd_parser():
                       help='generate index.html for gallery IDs')
     parser.add_option('--gen-index-f', type='string', dest='gen_index_f', action='store',
                       help='generate index.html for gallery IDs in file')
+    parser.add_option('--meta', dest='generate_metadata', action='store_true',
+                      help='generate a metadata file in doujinshi format')
 
     # nhentai options
     parser.add_option('--cookie', type='str', dest='cookie', action='store',
@@ -133,7 +135,7 @@ def cmd_parser():
     args, _ = parser.parse_args(sys.argv[1:])
 
     if args.html_viewer:
-        generate_html()
+        generate_html(template=constant.CONFIG['template'])
         exit(0)
 
     if args.main_viewer and not args.id and not args.keyword and not args.favorites:
@@ -217,7 +219,7 @@ def cmd_parser():
         parser.print_help()
         exit(1)
 
-    if not args.keyword and not args.id and not  args.favorites:
+    if not args.keyword and not args.id and not args.favorites:
         parser.print_help()
         exit(1)
 
