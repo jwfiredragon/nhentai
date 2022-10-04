@@ -17,7 +17,7 @@ from nhentai.logger import logger
 
 
 def banner():
-    logger.info(u'''nHentai ver %s: あなたも変態。 いいね?
+    logger.debug(u'''nHentai ver %s
        _   _            _        _
  _ __ | | | | ___ _ __ | |_ __ _(_)
 | '_ \| |_| |/ _ \ '_ \| __/ _` | |
@@ -88,7 +88,7 @@ def cmd_parser():
                       help='store a proxy, for example: -p \'http://127.0.0.1:1080\'')
     parser.add_option('--file', '-f', type='string', dest='file', action='store', help='read gallery IDs from file.')
     parser.add_option('--format', type='string', dest='name_format', action='store',
-                      help='format the saved folder name', default='[%i][%a][%t]')
+                      help='format the saved folder name', default='%i')
     parser.add_option('--dry-run', '-r', action='store_true', dest='dryrun', help='Dry run, skip file download.')
 
     # generate options
@@ -104,6 +104,10 @@ def cmd_parser():
                       help='generate PDF file')
     parser.add_option('--rm-origin-dir', dest='rm_origin_dir', action='store_true', default=False,
                       help='remove downloaded doujinshi dir when generated CBZ or PDF file.')
+    parser.add_option('--gen-index', type='string', dest='gen_index', action='store',
+                      help='generate index.html for gallery IDs')
+    parser.add_option('--gen-index-f', type='string', dest='gen_index_f', action='store',
+                      help='generate index.html for gallery IDs in file')
     parser.add_option('--meta', dest='generate_metadata', action='store_true',
                       help='generate a metadata file in doujinshi format')
     parser.add_option('--regenerate-cbz', dest='regenerate_cbz', action='store_true', default=False,
@@ -206,6 +210,15 @@ def cmd_parser():
 
     if args.file:
         with open(args.file, 'r') as f:
+            _ = [i.strip() for i in f.readlines()]
+            args.id = set(int(i) for i in _ if i.isdigit())
+
+    if args.gen_index:
+        _ = [i.strip() for i in args.gen_index.split(',')]
+        args.id = set(int(i) for i in _ if i.isdigit())
+
+    if args.gen_index_f:
+        with open(args.gen_index_f, 'r') as f:
             _ = [i.strip() for i in f.readlines()]
             args.id = set(int(i) for i in _ if i.isdigit())
 

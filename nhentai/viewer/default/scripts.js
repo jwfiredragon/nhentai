@@ -1,5 +1,34 @@
 const pages = Array.from(document.querySelectorAll('img.image-item'));
 let currentPage = 0;
+let showMetadata = 0;
+let fitHeight = 1;
+
+function openMetadata() {
+    var metadataPanel = document.getElementById("metadata-panel");
+    if (showMetadata == 1) {
+        metadataPanel.style.display = "none";
+        showMetadata = 0;
+    } else {
+        metadataPanel.style.display = "block";
+        showMetadata = 1;
+    }
+}
+
+function changeHeight() {
+    var imageContainer = document.getElementById("image-container");
+    var list = document.getElementById("list");
+    if (fitHeight == 1) {
+        imageContainer.style.maxHeight = "95vh";
+        dest.style.maxHeight = "95vh";
+        list.style.maxHeight = "95vh";
+        fitHeight = 0;
+    } else {
+        imageContainer.style.maxHeight = "none";
+        dest.style.maxHeight = "none";
+        list.style.maxHeight = "none";
+        fitHeight = 1;
+    }
+}
 
 function changePage(pageNum) {
     const previous = pages[currentPage];

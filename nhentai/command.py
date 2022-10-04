@@ -84,7 +84,7 @@ def main():
             if (i + 1) % 10 == 0:
                 logger.info('Progress: %d / %d' % (i + 1, len(doujinshi_ids)))
 
-    if not options.is_show:
+    if not options.is_show and not options.gen_index_f and not options.gen_index:
         downloader = Downloader(path=options.output_dir, size=options.threads,
                                 timeout=options.timeout, delay=options.delay)
 
@@ -116,8 +116,11 @@ def main():
         else:
             logger.log(15, 'All done.')
 
-    else:
+    elif options.is_show:
         [doujinshi.show() for doujinshi in doujinshi_list]
+
+    else:
+        generate_index(options.output_dir, doujinshi_list)
 
 
 signal.signal(signal.SIGINT, signal_handler)

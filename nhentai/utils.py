@@ -97,6 +97,7 @@ def generate_html(output_dir='.', doujinshi_obj=None, template='default'):
     html = readfile('viewer/{}/index.html'.format(template))
     css = readfile('viewer/{}/styles.css'.format(template))
     js = readfile('viewer/{}/scripts.js'.format(template))
+    metadata = serialize_metadata(doujinshi_obj)
 
     if doujinshi_obj is not None:
         serialize_json(doujinshi_obj, doujinshi_dir)
@@ -106,7 +107,7 @@ def generate_html(output_dir='.', doujinshi_obj=None, template='default'):
     else:
         name = {'title': 'nHentai HTML Viewer'}
 
-    data = html.format(TITLE=name, IMAGES=image_html, SCRIPTS=js, STYLES=css)
+    data = html.format(TITLE=name, IMAGES=image_html, SCRIPTS=js, STYLES=css, METADATA=metadata)
     try:
         if sys.version_info < (3, 0):
             with open(os.path.join(doujinshi_dir, 'index.html'), 'w') as f:
@@ -146,12 +147,15 @@ def generate_main_html(output_dir='./'):
     os.chdir(output_dir)
     doujinshi_dirs = next(os.walk('.'))[1]
 
+    count = 0
+
     for folder in doujinshi_dirs:
         files = os.listdir(folder)
         files.sort()
 
         if 'index.html' in files:
             logger.info('Add doujinshi \'{}\''.format(folder))
+            count += 1
         else:
             continue
 
@@ -166,7 +170,7 @@ def generate_main_html(output_dir='./'):
         logger.warning('No index.html found, --gen-main paused.')
         return
     try:
-        data = main.format(STYLES=css, SCRIPTS=js, PICTURE=image_html)
+        data = main.format(STYLES=css, SCRIPTS=js, PICTURE=image_html, COUNT='{} items'.format(count))
         if sys.version_info < (3, 0):
             with open('./main.html', 'w') as f:
                 f.write(data)
@@ -349,3 +353,59 @@ class DB(object):
     def get_all(self):
         data = self.cur.execute('SELECT id FROM download_history')
         return [i[0] for i in data]
+
+def generate_index(output_dir='./', doujinshi_list=None):
+    if doujinshi_list is not None:
+        for doujinshi_obj in doujinshi_list:
+            if os.path.exists(os.path.join(output_dir, doujinshi_obj.filename)):
+                generate_html(output_dir, doujinshi_obj)
+            else:
+                logger.warning('Gallery {} does not exist, skipped'.format(doujinshi_obj.filename))
+    else:
+        logger.error('No doujinshi list detected')
+        
+
+def serialize_metadata(doujinshi):
+    metadata = readfile('viewer/default/metadata.html')
+
+    if doujinshi is not None:
+        m_titleen = doujinshi.name
+        m_title = doujinshi.info.subtitle
+        m_id = 'ID: ' + str(doujinshi.id)
+        m_language = ''
+        m_author = ''
+        m_parodies = ''
+        m_characters = ''
+        m_tags = ''
+
+        for language in doujinshi.info.languages.split(', '):
+            m_language += '\t\t<li>{}</li>\n'.format(language)
+        for author in doujinshi.info.artists.split(', '):
+            m_author += '\t\t<li>{}</li>\n'.format(author)
+        for parody in doujinshi.info.parodies.split(', '):
+            m_parodies += '\t\t<li>{}</li>\n'.format(parody)
+        for characters in doujinshi.info.characters.split(', '):
+            m_characters += '\t\t<li>{}</li>\n'.format(characters)
+        for tags in doujinshi.info.tags.split(', '):
+            m_tags += '\t\t<li>{}</li>\n'.format(tags)
+
+        if sys.version_info < (3, 0):
+            m_titleen = m_titleen.encode('utf-8')
+            m_title = m_title.encode('utf-8')
+            m_id = m_id.encode('utf-8')
+            m_language = m_language.encode('utf-8')
+            m_author = m_author.encode('utf-8')
+            m_parodies = m_parodies.encode('utf-8')
+            m_characters = m_characters.encode('utf-8')
+            m_tags = m_tags.encode('utf-8')
+            
+    else:
+        m_titleen = 'ERROR'
+        m_title = 'ERROR'
+        m_language = '\t\t<li>ERROR</li>\n'
+        m_author = '\t\t<li>ERROR</li>\n'
+        m_parodies = '\t\t<li>ERROR</li>\n'
+        m_characters = '\t\t<li>ERROR</li>\n'
+        m_tags = '\t\t<li>ERROR</li>\n'
+
+    return metadata.format(M_TITLEEN=m_titleen, M_TITLE=m_title, M_ID=m_id, M_LANGUAGE=m_language, M_AUTHOR=m_author, M_PARODIES=m_parodies, M_CHARACTERS=m_characters, M_TAGS=m_tags)

@@ -204,6 +204,14 @@ Other options:
                             clean download history
       --template=VIEWER_TEMPLATE
                             set viewer template
+      --gen-index=ID        generate index.html for gallery IDs
+      --gen-index-f=FILE    generate index.html for gallery IDs in file
+
+      NOTE: --gen-index and --gen-index-f only work for existing folders.
+            Please set --format to match format of folders.
+
+      # nHentai options
+      --cookie=COOKIE       set cookie of nhentai to bypass Google recaptcha
 
 ==============
 nHentai Mirror

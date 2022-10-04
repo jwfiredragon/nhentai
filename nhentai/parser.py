@@ -121,7 +121,7 @@ def doujinshi_parser(id_):
             logger.error("Doujinshi with id {0} cannot be found".format(id_))
             return []
         else:
-            logger.debug('Slow down and retry ({}) ...'.format(id_))
+            logger.warning('Slow down and retry ({}) ...'.format(id_))
             time.sleep(1)
             return doujinshi_parser(str(id_))
 
@@ -178,7 +178,7 @@ def doujinshi_parser(id_):
 
 
 def old_search_parser(keyword, sorting='date', page=1):
-    logger.debug('Searching doujinshis of keyword {0}'.format(keyword))
+    logger.info('Searching doujinshis of keyword {0}'.format(keyword))
     response = request('get', url=constant.SEARCH_URL, params={'q': keyword, 'page': page, 'sort': sorting}).content
 
     result = _get_title_and_id(response)

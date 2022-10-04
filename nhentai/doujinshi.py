@@ -45,7 +45,7 @@ class Doujinshi(object):
         self.url = '%s/%d' % (DETAIL_URL, self.id)
         self.info = DoujinshiInfo(**kwargs)
 
-        name_format = name_format.replace('%i', str(self.id))
+        name_format = name_format.replace('%i', str(self.id).zfill(6))
         name_format = name_format.replace('%a', self.info.artists)
 
         name_format = name_format.replace('%t', trunk_string(self.name))
