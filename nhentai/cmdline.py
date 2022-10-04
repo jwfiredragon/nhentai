@@ -73,7 +73,7 @@ def cmd_parser():
                       help='page number of search results. e.g. 1,2-5,14')
     parser.add_option('--sorting', dest='sorting', action='store', default='recent',
                       help='sorting of doujinshi (recent / popular / popular-[today|week])',
-                      choices=['recent', 'popular', 'popular-today', 'popular-week'])
+                      choices=['recent', 'popular', 'popular-today', 'popular-week', 'date'])
 
     # download options
     parser.add_option('--output', '-o', type='string', dest='output_dir', action='store', default='./',
@@ -110,10 +110,14 @@ def cmd_parser():
                       help='generate index.html for gallery IDs in file')
     parser.add_option('--meta', dest='generate_metadata', action='store_true',
                       help='generate a metadata file in doujinshi format')
+    parser.add_option('--regenerate-cbz', dest='regenerate_cbz', action='store_true', default=False,
+                      help='regenerate the cbz file if exists')
 
     # nhentai options
     parser.add_option('--cookie', type='str', dest='cookie', action='store',
-                      help='set cookie of nhentai to bypass Google recaptcha')
+                      help='set cookie of nhentai to bypass Cloudflare captcha')
+    parser.add_option('--useragent', '--user-agent', type='str', dest='useragent', action='store',
+                      help='set useragent to bypass Cloudflare captcha')
     parser.add_option('--language', type='str', dest='language', action='store',
                       help='set default language to parse doujinshis')
     parser.add_option('--clean-language', dest='clean_language', action='store_true', default=False,
@@ -152,20 +156,24 @@ def cmd_parser():
     # --- set config ---
     if args.cookie is not None:
         constant.CONFIG['cookie'] = args.cookie
+        write_config()
         logger.info('Cookie saved.')
-        write_config()
         exit(0)
-
-    if args.language is not None:
-        constant.CONFIG['language'] = args.language
-        logger.info('Default language now set to \'{0}\''.format(args.language))
+    elif args.useragent is not None:
+        constant.CONFIG['useragent'] = args.useragent
         write_config()
+        logger.info('User-Agent saved.')
+        exit(0)
+    elif args.language is not None:
+        constant.CONFIG['language'] = args.language
+        write_config()
+        logger.info('Default language now set to \'{0}\''.format(args.language))
         exit(0)
         # TODO: search without language
 
     if args.proxy is not None:
         proxy_url = urlparse(args.proxy)
-        if not args.proxy == '' and proxy_url.scheme not in ('http', 'https'):
+        if not args.proxy == '' and proxy_url.scheme not in ('http', 'https', 'socks5', 'socks5h', 'socks4', 'socks4a'):
             logger.error('Invalid protocol \'{0}\' of proxy, ignored'.format(proxy_url.scheme))
             exit(0)
         else:

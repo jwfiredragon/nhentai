@@ -72,7 +72,10 @@ Set your nhentai cookie against captcha:
 
     nhentai --cookie "YOUR COOKIE FROM nhentai.net"
 
-**NOTE**: The format of the cookie is `"csrftoken=TOKEN; sessionid=ID"`
+**NOTE**
+
+- The format of the cookie is `"csrftoken=TOKEN; sessionid=ID; cf_clearance=CLOUDFLARE"`
+- `cf_clearance` cookie and useragent must be set if you encounter "blocked by cloudflare captcha" error. Make sure you use the same IP and useragent as when you got it
 
 | To get csrftoken and sessionid, first login to your nhentai account in web browser, then:
 | (Chrome) |ve| |ld| More tools    |ld| Developer tools     |ld| Application |ld| Storage |ld| Cookies |ld| https://nhentai.net
@@ -135,24 +138,34 @@ Other options:
 
 .. code-block::
 
+    Usage:
+      nhentai --search [keyword] --download
+      NHENTAI=http://h.loli.club nhentai --id [ID ...]
+      nhentai --file [filename]
+
+    Environment Variable:
+      NHENTAI                 nhentai mirror url
+
     Options:
-      # Operation options
+      # Operation options, control the program behaviors
       -h, --help            show this help message and exit
       -D, --download        download doujinshi (for search results)
       -S, --show            just show the doujinshi information
 
-      # Doujinshi options
+      # Doujinshi options, specify id, keyword, etc.
       --id=ID               doujinshi ids set, e.g. 1,2,3
       -s KEYWORD, --search=KEYWORD
                             search doujinshi by keyword
-      --tag=TAG             download doujinshi by tag
       -F, --favorites       list or download your favorites.
 
-      # Multi-page options
-      --page=PAGE           page number of search results
-      --max-page=MAX_PAGE   The max page when recursive download tagged doujinshi
+      # Page options, control the page to fetch / download
+      --page-all            all search results
+      --page=PAGE, --page-range=PAGE
+                            page number of search results. e.g. 1,2-5,14
+      --sorting=SORTING     sorting of doujinshi (recent / popular /
+                            popular-[today|week])
 
-      # Download options
+      # Download options, the output directory, threads, timeout, delay, etc.
       -o OUTPUT_DIR, --output=OUTPUT_DIR
                             output dir
       -t THREADS, --threads=THREADS
@@ -161,19 +174,36 @@ Other options:
                             timeout for downloading doujinshi
       -d DELAY, --delay=DELAY
                             slow down between downloading every doujinshi
-      -p PROXY, --proxy=PROXY
-                            uses a proxy, for example: http://127.0.0.1:1080
+      --proxy=PROXY         store a proxy, for example: -p 'http://127.0.0.1:1080'
       -f FILE, --file=FILE  read gallery IDs from file.
       --format=NAME_FORMAT  format the saved folder name
+      -r, --dry-run         Dry run, skip file download.
 
-      # Generating options
+      # Generate options, for generate html viewer, cbz file, pdf file, etc
       --html                generate a html viewer at current directory
       --no-html             don't generate HTML after downloading
-      --gen-main            generate a main viewer contain all the doujin in the folder
+      --gen-main            generate a main viewer contain all the doujin in the
+                            folder
       -C, --cbz             generate Comic Book CBZ File
-      -P --pdf              generate PDF file
-      --rm-origin-dir       remove downloaded doujinshi dir when generated CBZ
-                            or PDF file.
+      -P, --pdf             generate PDF file
+      --rm-origin-dir       remove downloaded doujinshi dir when generated CBZ or
+                            PDF file.
+      --meta                generate a metadata file in doujinshi format
+      --regenerate-cbz      regenerate the cbz file if exists
+
+      # nhentai options, set cookie, user-agent, language, remove caches, histories, etc
+      --cookie=COOKIE       set cookie of nhentai to bypass Cloudflare captcha
+      --useragent=USERAGENT
+                            set useragent to bypass Cloudflare captcha
+      --language=LANGUAGE   set default language to parse doujinshis
+      --clean-language      set DEFAULT as language to parse doujinshis
+      --save-download-history
+                            save downloaded doujinshis, whose will be skipped if
+                            you re-download them
+      --clean-download-history
+                            clean download history
+      --template=VIEWER_TEMPLATE
+                            set viewer template
       --gen-index=ID        generate index.html for gallery IDs
       --gen-index-f=FILE    generate index.html for gallery IDs in file
 
@@ -182,7 +212,6 @@ Other options:
 
       # nHentai options
       --cookie=COOKIE       set cookie of nhentai to bypass Google recaptcha
-
 
 ==============
 nHentai Mirror
@@ -209,13 +238,6 @@ Set `NHENTAI` env var to your nhentai mirror.
     :alt: nhentai
     :align: center
 .. image:: ./images/viewer.png?raw=true
-    :alt: nhentai
-    :align: center
-
-============
-あなたも変態
-============
-.. image:: ./images/image.jpg?raw=true
     :alt: nhentai
     :align: center
 
