@@ -33,7 +33,7 @@ class ColorizingStreamHandler(logging.StreamHandler):
 
     # levels to (background, foreground, bold/intense)
     level_map = {
-        logging.DEBUG: (None, 'green', False),
+        logging.DEBUG: (None, 'blue', False),
         logging.INFO: (None, 'white', False),
         logging.WARNING: (None, 'yellow', False),
         logging.ERROR: (None, 'red', False),
@@ -160,18 +160,18 @@ class ColorizingStreamHandler(logging.StreamHandler):
         return self.colorize(message, record)
 
 
-logging.addLevelName(15, "INFO")
+logging.addLevelName(16, "SUCCESS")
 logger = logging.getLogger('nhentai')
 LOGGER_HANDLER = ColorizingStreamHandler(sys.stdout)
-FORMATTER = logging.Formatter("\r[%(asctime)s] [%(levelname)s] %(message)s", "%H:%M:%S")
+FORMATTER = logging.Formatter("\r[%(asctime)s] %(funcName)s: %(message)s", "%H:%M:%S")
 LOGGER_HANDLER.setFormatter(FORMATTER)
-LOGGER_HANDLER.level_map[logging.getLevelName("INFO")] = (None, "cyan", False)
+LOGGER_HANDLER.level_map[logging.getLevelName("SUCCESS")] = (None, "green", False)
 logger.addHandler(LOGGER_HANDLER)
 logger.setLevel(logging.DEBUG)
 
 
 if __name__ == '__main__':
-    logger.log(15, 'nhentai')
+    logger.log(16, 'nhentai')
     logger.info('info')
     logger.warning('warning')
     logger.debug('debug')

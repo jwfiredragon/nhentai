@@ -1,59 +1,67 @@
 nhentai
 =======
 
-.. code-block::
-
-           _   _            _        _
-     _ __ | | | | ___ _ __ | |_ __ _(_)
-    | '_ \| |_| |/ _ \ '_ \| __/ _` | |
-    | | | |  _  |  __/ | | | || (_| | |
-    |_| |_|_| |_|\___|_| |_|\__\__,_|_|
-
-
 あなたも変態。 いいね?
 
 |travis|
 |pypi|
+|version|
 |license|
 
 
-nHentai is a CLI tool for downloading doujinshi from <http://nhentai.net>
+nhentai is a CLI tool for downloading doujinshi from `nhentai.net <https://nhentai.net>`_
 
 ===================
 Manual Installation
 ===================
+From Github:
+
 .. code-block::
 
     git clone https://github.com/RicterZ/nhentai
     cd nhentai
     python setup.py install
 
-==================
-Installation (pip)
-==================
-Alternatively, install from PyPI with pip:
+Build Docker container:
 
 .. code-block::
 
-           pip install nhentai
+    git clone https://github.com/RicterZ/nhentai
+    cd nhentai
+    docker build -t nhentai:latest .
+    docker run --rm -it -v ~/Downloads/doujinshi:/output -v ~/.nhentai/:/root/.nhentai nhentai --id 123855
 
-For a self-contained installation, use `Pipx <https://github.com/pipxproject/pipx/>`_:
+==================
+Installation
+==================
+From PyPI with pip:
 
 .. code-block::
 
-           pipx install nhentai
+   pip install nhentai
 
-=====================
-Installation (Gentoo)
-=====================
+For a self-contained installation, use `pipx <https://github.com/pipxproject/pipx/>`_:
+
+.. code-block::
+
+   pipx install nhentai
+
+Pull from Dockerhub:
+
+.. code-block::
+
+    docker pull ricterz/nhentai
+    docker run --rm -it -v ~/Downloads/doujinshi:/output -v ~/.nhentai/:/root/.nhentai ricterz/nhentai --id 123855
+
+On Gentoo Linux:
+
 .. code-block::
 
     layman -fa glicOne
     sudo emerge net-misc/nhentai
-    
-=====================
-Installation (NixOs)
-=====================
+
+On NixOS:
+
 .. code-block::
 
     nix-env -iA nixos.nhentai
@@ -61,18 +69,14 @@ Installation (NixOs)
 =====
 Usage
 =====
-**IMPORTANT**: To bypass the nhentai frequency limit, you should use `--cookie` option to store your cookie.
-
-*The default download folder will be the path where you run the command (CLI path).*
-
-
-Set your nhentai cookie against captcha:
+**⚠️IMPORTANT⚠️**: To bypass the nhentai frequency limit, you should use `--cookie` and `--useragent` options to store your cookie and your user-agent.
 
 .. code-block:: bash
 
+    nhentai --useragent "USER AGENT of YOUR BROWSER"
     nhentai --cookie "YOUR COOKIE FROM nhentai.net"
 
-**NOTE**
+**NOTE:**
 
 - The format of the cookie is `"csrftoken=TOKEN; sessionid=ID; cf_clearance=CLOUDFLARE"`
 - `cf_clearance` cookie and useragent must be set if you encounter "blocked by cloudflare captcha" error. Make sure you use the same IP and useragent as when you got it
@@ -86,11 +90,17 @@ Set your nhentai cookie against captcha:
 .. |ve| unicode:: U+22EE .. https://www.compart.com/en/unicode/U+22EE
 .. |ld| unicode:: U+2014 .. https://www.compart.com/en/unicode/U+2014
 
+.. image:: https://github.com/RicterZ/nhentai/raw/master/images/usage.png
+    :alt: nhentai
+    :align: center
+
+*The default download folder will be the path where you run the command (%cd% or $PWD).*
+
 Download specified doujinshi:
 
 .. code-block:: bash
 
-    nhentai --id=123855,123866
+    nhentai --id 123855 123866 123877
 
 Download doujinshi with ids specified in a file (doujinshi ids split by line):
 
@@ -140,7 +150,7 @@ Other options:
 
     Usage:
       nhentai --search [keyword] --download
-      NHENTAI=http://h.loli.club nhentai --id [ID ...]
+      NHENTAI=https://nhentai-mirror-url/ nhentai --id [ID ...]
       nhentai --file [filename]
 
     Environment Variable:
@@ -153,10 +163,10 @@ Other options:
       -S, --show            just show the doujinshi information
 
       # Doujinshi options, specify id, keyword, etc.
-      --id=ID               doujinshi ids set, e.g. 1,2,3
+      --id                  doujinshi ids set, e.g. 167680 167681 167682
       -s KEYWORD, --search=KEYWORD
                             search doujinshi by keyword
-      -F, --favorites       list or download your favorites.
+      -F, --favorites       list or download your favorites
 
       # Page options, control the page to fetch / download
       --page-all            all search results
@@ -174,10 +184,10 @@ Other options:
                             timeout for downloading doujinshi
       -d DELAY, --delay=DELAY
                             slow down between downloading every doujinshi
-      --proxy=PROXY         store a proxy, for example: -p 'http://127.0.0.1:1080'
+      --proxy=PROXY         store a proxy, for example: -p "http://127.0.0.1:1080"
       -f FILE, --file=FILE  read gallery IDs from file.
       --format=NAME_FORMAT  format the saved folder name
-      -r, --dry-run         Dry run, skip file download.
+      --dry-run             Dry run, skip file download
 
       # Generate options, for generate html viewer, cbz file, pdf file, etc
       --html                generate a html viewer at current directory
@@ -187,13 +197,19 @@ Other options:
       -C, --cbz             generate Comic Book CBZ File
       -P, --pdf             generate PDF file
       --rm-origin-dir       remove downloaded doujinshi dir when generated CBZ or
-                            PDF file.
+                            PDF file
       --meta                generate a metadata file in doujinshi format
       --regenerate-cbz      regenerate the cbz file if exists
+      
+      --gen-index=ID        generate index.html for gallery IDs
+      --gen-index-f=FILE    generate index.html for gallery IDs in file
+
+      NOTE: --gen-index and --gen-index-f only work for existing folders.
+            Please set --format to match format of folders.
 
       # nhentai options, set cookie, user-agent, language, remove caches, histories, etc
       --cookie=COOKIE       set cookie of nhentai to bypass Cloudflare captcha
-      --useragent=USERAGENT
+      --useragent=USERAGENT, --user-agent=USERAGENT
                             set useragent to bypass Cloudflare captcha
       --language=LANGUAGE   set default language to parse doujinshis
       --clean-language      set DEFAULT as language to parse doujinshis
@@ -204,14 +220,7 @@ Other options:
                             clean download history
       --template=VIEWER_TEMPLATE
                             set viewer template
-      --gen-index=ID        generate index.html for gallery IDs
-      --gen-index-f=FILE    generate index.html for gallery IDs in file
-
-      NOTE: --gen-index and --gen-index-f only work for existing folders.
-            Please set --format to match format of folders.
-
-      # nHentai options
-      --cookie=COOKIE       set cookie of nhentai to bypass Google recaptcha
+      --legacy              use legacy searching method
 
 ==============
 nHentai Mirror
@@ -228,25 +237,27 @@ Set `NHENTAI` env var to your nhentai mirror.
 
 .. code-block:: bash
 
-    NHENTAI=http://h.loli.club nhentai --id 123456
+    NHENTAI=https://h.loli.club nhentai --id 123456
 
 
-.. image:: ./images/search.png?raw=true
+.. image:: https://github.com/RicterZ/nhentai/raw/master/images/search.png
     :alt: nhentai
     :align: center
-.. image:: ./images/download.png?raw=true
+.. image:: https://github.com/RicterZ/nhentai/raw/master/images/download.png
     :alt: nhentai
     :align: center
-.. image:: ./images/viewer.png?raw=true
+.. image:: https://github.com/RicterZ/nhentai/raw/master/images/viewer.png
     :alt: nhentai
     :align: center
-
 
 
 .. |travis| image:: https://travis-ci.org/RicterZ/nhentai.svg?branch=master
    :target: https://travis-ci.org/RicterZ/nhentai
 
 .. |pypi| image:: https://img.shields.io/pypi/dm/nhentai.svg
+   :target: https://pypi.org/project/nhentai/
+
+.. |version| image:: https://img.shields.io/pypi/v/nhentai
    :target: https://pypi.org/project/nhentai/
 
 .. |license| image:: https://img.shields.io/github/license/ricterz/nhentai.svg

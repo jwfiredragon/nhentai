@@ -2,10 +2,10 @@
 import json
 import os
 from xml.sax.saxutils import escape
-from nhentai.constant import LANGUAGEISO
+from nhentai.constant import LANGUAGE_ISO
 
 
-def serialize_json(doujinshi, dir):
+def serialize_json(doujinshi, output_dir):
     metadata = {'title': doujinshi.name,
                 'subtitle': doujinshi.info.subtitle}
     if doujinshi.info.date:
@@ -26,13 +26,13 @@ def serialize_json(doujinshi, dir):
     metadata['URL'] = doujinshi.url
     metadata['Pages'] = doujinshi.pages
 
-    with open(os.path.join(dir, 'metadata.json'), 'w') as f:
+    with open(os.path.join(output_dir, 'metadata.json'), 'w') as f:
         json.dump(metadata, f, separators=(',', ':'))
 
 
-def serialize_comic_xml(doujinshi, dir):
+def serialize_comic_xml(doujinshi, output_dir):
     from iso8601 import parse_date
-    with open(os.path.join(dir, 'ComicInfo.xml'), 'w', encoding="utf-8") as f:
+    with open(os.path.join(output_dir, 'ComicInfo.xml'), 'w', encoding="utf-8") as f:
         f.write('<?xml version="1.0" encoding="utf-8"?>\n')
         f.write('<ComicInfo xmlns:xsd="http://www.w3.org/2001/XMLSchema" '
                 'xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">\n')
@@ -67,14 +67,14 @@ def serialize_comic_xml(doujinshi, dir):
         if doujinshi.info.languages:
             languages = [i.strip() for i in doujinshi.info.languages.split(',')]
             xml_write_simple_tag(f, 'Translated', 'Yes' if 'translated' in languages else 'No')
-            [xml_write_simple_tag(f, 'LanguageISO', LANGUAGEISO[i]) for i in languages
-                if (i != 'translated' and i in LANGUAGEISO)]
+            [xml_write_simple_tag(f, 'LanguageISO', LANGUAGE_ISO[i]) for i in languages
+             if (i != 'translated' and i in LANGUAGE_ISO)]
 
         f.write('</ComicInfo>')
 
 
 def xml_write_simple_tag(f, name, val, indent=1):
-    f.write('{}<{}>{}</{}>\n'.format(' ' * indent, name, escape(str(val)), name))
+    f.write(f'{" "*indent}<{name}>{escape(str(val))}</{name}>\n')
 
 
 def merge_json():

@@ -13,6 +13,9 @@ from nhentai.logger import logger
 from nhentai.serializer import serialize_json, serialize_comic_xml, set_js_database
 
 
+MAX_FIELD_LENGTH = 100
+
+
 def request(method, url, **kwargs):
     session = requests.Session()
     session.headers.update({
@@ -29,15 +32,15 @@ def request(method, url, **kwargs):
 
 def check_cookie():
     response = request('get', constant.BASE_URL)
-    if response.status_code == 503 and 'cf-browser-verification' in response.text:
+    if response.status_code == 403 and 'Just a moment...' in response.text:
         logger.error('Blocked by Cloudflare captcha, please set your cookie and useragent')
-        exit(-1)
+        sys.exit(1)
 
-    username = re.findall('"/users/\d+/(.*?)"', response.text)
+    username = re.findall('"/users/[0-9]+/(.*?)"', response.text)
     if not username:
         logger.warning('Cannot get your username, please check your cookie or use `nhentai --cookie` to set your cookie')
     else:
-        logger.info('Login successfully! Your username: {}'.format(username[0]))
+        logger.log(16, f'Login successfully! Your username: {username[0]}')
 
 
 class _Singleton(type):
@@ -52,15 +55,6 @@ class _Singleton(type):
 
 class Singleton(_Singleton(str('SingletonMeta'), (object,), {})):
     pass
-
-
-def urlparse(url):
-    try:
-        from urlparse import urlparse
-    except ImportError:
-        from urllib.parse import urlparse
-
-    return urlparse(url)
 
 
 def readfile(path):
@@ -79,11 +73,11 @@ def generate_html(output_dir='.', doujinshi_obj=None, template='default'):
         doujinshi_dir = '.'
 
     if not os.path.exists(doujinshi_dir):
-        logger.warning('Path \'{0}\' does not exist, creating.'.format(doujinshi_dir))
+        logger.warning(f'Path "{doujinshi_dir}" does not exist, creating.')
         try:
             os.makedirs(doujinshi_dir)
         except EnvironmentError as e:
-            logger.critical('{0}'.format(str(e)))
+            logger.critical(e)
 
     file_list = os.listdir(doujinshi_dir)
     file_list.sort()
@@ -91,39 +85,32 @@ def generate_html(output_dir='.', doujinshi_obj=None, template='default'):
     for image in file_list:
         if not os.path.splitext(image)[1] in ('.jpg', '.png'):
             continue
+        image_html += f'<img src="{image}" class="image-item"/>\n'
 
-        image_html += '<img src="{0}" class="image-item"/>\n' \
-            .format(image)
-    html = readfile('viewer/{}/index.html'.format(template))
-    css = readfile('viewer/{}/styles.css'.format(template))
-    js = readfile('viewer/{}/scripts.js'.format(template))
+    html = readfile(f'viewer/{template}/index.html')
+    css = readfile(f'viewer/{template}/styles.css')
+    js = readfile(f'viewer/{template}/scripts.js')
     metadata = serialize_metadata(doujinshi_obj)
 
     if doujinshi_obj is not None:
         serialize_json(doujinshi_obj, doujinshi_dir)
         name = doujinshi_obj.name
-        if sys.version_info < (3, 0):
-            name = doujinshi_obj.name.encode('utf-8')
     else:
         name = {'title': 'nHentai HTML Viewer'}
 
     data = html.format(TITLE=name, IMAGES=image_html, SCRIPTS=js, STYLES=css, METADATA=metadata)
     try:
-        if sys.version_info < (3, 0):
-            with open(os.path.join(doujinshi_dir, 'index.html'), 'w') as f:
-                f.write(data)
-        else:
-            with open(os.path.join(doujinshi_dir, 'index.html'), 'wb') as f:
-                f.write(data.encode('utf-8'))
+        with open(os.path.join(doujinshi_dir, 'index.html'), 'wb') as f:
+            f.write(data.encode('utf-8'))
 
-        logger.log(15, 'HTML Viewer has been written to \'{0}\''.format(os.path.join(doujinshi_dir, 'index.html')))
+        logger.log(16, f'HTML Viewer has been written to "{os.path.join(doujinshi_dir, "index.html")}"')
     except Exception as e:
-        logger.warning('Writing HTML Viewer failed ({})'.format(str(e)))
+        logger.warning(f'Writing HTML Viewer failed ({e})')
 
 
 def generate_main_html(output_dir='./'):
     """
-    Generate a main html to show all the contain doujinshi.
+    Generate a main html to show all the contains doujinshi.
     With a link to their `index.html`.
     Default output folder will be the CLI path.
     """
@@ -154,7 +141,7 @@ def generate_main_html(output_dir='./'):
         files.sort()
 
         if 'index.html' in files:
-            logger.info('Add doujinshi \'{}\''.format(folder))
+            logger.info(f'Add doujinshi "{folder}"')
             count += 1
         else:
             continue
@@ -170,19 +157,14 @@ def generate_main_html(output_dir='./'):
         logger.warning('No index.html found, --gen-main paused.')
         return
     try:
-        data = main.format(STYLES=css, SCRIPTS=js, PICTURE=image_html, COUNT='{} items'.format(count))
-        if sys.version_info < (3, 0):
-            with open('./main.html', 'w') as f:
-                f.write(data)
-        else:
-            with open('./main.html', 'wb') as f:
-                f.write(data.encode('utf-8'))
+        data = main.format(STYLES=css, SCRIPTS=js, PICTURE=image_html, COUNT='{count} items')
+        with open('./main.html', 'wb') as f:
+            f.write(data.encode('utf-8'))
         shutil.copy(os.path.dirname(__file__) + '/viewer/logo.png', './')
         set_js_database()
-        logger.log(
-            15, 'Main Viewer has been written to \'{0}main.html\''.format(output_dir))
+        logger.log(16, f'Main Viewer has been written to "{output_dir}main.html"')
     except Exception as e:
-        logger.warning('Writing Main Viewer failed ({})'.format(str(e)))
+        logger.warning(f'Writing Main Viewer failed ({e})')
 
 
 def generate_cbz(output_dir='.', doujinshi_obj=None, rm_origin_dir=False, write_comic_info=True):
@@ -190,7 +172,7 @@ def generate_cbz(output_dir='.', doujinshi_obj=None, rm_origin_dir=False, write_
         doujinshi_dir = os.path.join(output_dir, doujinshi_obj.filename)
         if write_comic_info:
             serialize_comic_xml(doujinshi_obj, doujinshi_dir)
-        cbz_filename = os.path.join(os.path.join(doujinshi_dir, '..'), '{}.cbz'.format(doujinshi_obj.filename))
+        cbz_filename = os.path.join(os.path.join(doujinshi_dir, '..'), f'{doujinshi_obj.filename}.cbz')
     else:
         cbz_filename = './doujinshi.cbz'
         doujinshi_dir = '.'
@@ -198,7 +180,7 @@ def generate_cbz(output_dir='.', doujinshi_obj=None, rm_origin_dir=False, write_
     file_list = os.listdir(doujinshi_dir)
     file_list.sort()
 
-    logger.info('Writing CBZ file to path: {}'.format(cbz_filename))
+    logger.info(f'Writing CBZ file to path: {cbz_filename}')
     with zipfile.ZipFile(cbz_filename, 'w') as cbz_pf:
         for image in file_list:
             image_path = os.path.join(doujinshi_dir, image)
@@ -207,7 +189,7 @@ def generate_cbz(output_dir='.', doujinshi_obj=None, rm_origin_dir=False, write_
     if rm_origin_dir:
         shutil.rmtree(doujinshi_dir, ignore_errors=True)
 
-    logger.log(15, 'Comic Book CBZ file has been written to \'{0}\''.format(doujinshi_dir))
+    logger.log(16, f'Comic Book CBZ file has been written to "{doujinshi_dir}"')
 
 
 def generate_pdf(output_dir='.', doujinshi_obj=None, rm_origin_dir=False):
@@ -219,7 +201,7 @@ def generate_pdf(output_dir='.', doujinshi_obj=None, rm_origin_dir=False):
             doujinshi_dir = os.path.join(output_dir, doujinshi_obj.filename)
             pdf_filename = os.path.join(
                 os.path.join(doujinshi_dir, '..'),
-                '{}.pdf'.format(doujinshi_obj.filename)
+                f'{doujinshi_obj.filename}.pdf'
             )
         else:
             pdf_filename = './doujinshi.pdf'
@@ -228,7 +210,7 @@ def generate_pdf(output_dir='.', doujinshi_obj=None, rm_origin_dir=False):
         file_list = os.listdir(doujinshi_dir)
         file_list.sort()
 
-        logger.info('Writing PDF file to path: {}'.format(pdf_filename))
+        logger.info(f'Writing PDF file to path: {pdf_filename}')
         with open(pdf_filename, 'wb') as pdf_f:
             full_path_list = (
                 [os.path.join(doujinshi_dir, image) for image in file_list]
@@ -238,20 +220,13 @@ def generate_pdf(output_dir='.', doujinshi_obj=None, rm_origin_dir=False):
         if rm_origin_dir:
             shutil.rmtree(doujinshi_dir, ignore_errors=True)
 
-        logger.log(15, 'PDF file has been written to \'{0}\''.format(doujinshi_dir))
+        logger.log(16, f'PDF file has been written to "{doujinshi_dir}"')
 
     except ImportError:
         logger.error("Please install img2pdf package by using pip.")
 
 
-def unicode_truncate(s, length, encoding='utf-8'):
-    """https://stackoverflow.com/questions/1809531/truncating-unicode-so-it-fits-a-maximum-size-when-encoded-for-wire-transfer
-    """
-    encoded = s.encode(encoding)[:length]
-    return encoded.decode(encoding, 'ignore')
-
-
-def format_filename(s):
+def format_filename(s, length=MAX_FIELD_LENGTH, _truncate_only=False):
     """
     It used to be a whitelist approach allowed only alphabet and a part of symbols.
     but most doujinshi's names include Japanese 2-byte characters and these was rejected.
@@ -259,16 +234,20 @@ def format_filename(s):
     if filename include forbidden characters (\'/:,;*?"<>|) ,it replace space character(' '). 
     """
     # maybe you can use `--format` to select a suitable filename
-    ban_chars = '\\\'/:,;*?"<>|\t'
-    filename = s.translate(str.maketrans(ban_chars, ' ' * len(ban_chars))).strip()
-    filename = ' '.join(filename.split())
 
-    while filename.endswith('.'):
-        filename = filename[:-1]
+    if not _truncate_only:
+        ban_chars = '\\\'/:,;*?"<>|\t'
+        filename = s.translate(str.maketrans(ban_chars, ' ' * len(ban_chars))).strip()
+        filename = ' '.join(filename.split())
 
-    # limit 254 chars
-    if len(filename) >= 255:
-        filename = filename[:254] + u'…'
+        while filename.endswith('.'):
+            filename = filename[:-1]
+    else:
+        filename = s
+
+    # limit `length` chars
+    if len(filename) >= length:
+        filename = filename[:length - 1] + u'…'
 
     # Remove [] from filename
     filename = filename.replace('[]', '').strip()
@@ -277,7 +256,7 @@ def format_filename(s):
 
 def signal_handler(signal, frame):
     logger.error('Ctrl-C signal received. Stopping...')
-    exit(1)
+    sys.exit(1)
 
 
 def paging(page_string):
@@ -320,7 +299,7 @@ def generate_metadata_file(output_dir, table, doujinshi_obj=None):
                       'LANGUAGE', 'TAGS', 'URL', 'PAGES']
 
     for i in range(len(fields)):
-        f.write('{}: '.format(fields[i]))
+        f.write(f'{fields[i]}: ')
         if fields[i] in special_fields:
             f.write(str(table[special_fields.index(fields[i])][1]))
         f.write('\n')
@@ -360,7 +339,7 @@ def generate_index(output_dir='./', doujinshi_list=None):
             if os.path.exists(os.path.join(output_dir, doujinshi_obj.filename)):
                 generate_html(output_dir, doujinshi_obj)
             else:
-                logger.warning('Gallery {} does not exist, skipped'.format(doujinshi_obj.filename))
+                logger.warning('Gallery {doujinshi_obj.filename} does not exist, skipped')
     else:
         logger.error('No doujinshi list detected')
         
@@ -379,15 +358,15 @@ def serialize_metadata(doujinshi):
         m_tags = ''
 
         for language in doujinshi.info.languages.split(', '):
-            m_language += '\t\t<li>{}</li>\n'.format(language)
+            m_language += f'\t\t<li>{language}</li>\n'
         for author in doujinshi.info.artists.split(', '):
-            m_author += '\t\t<li>{}</li>\n'.format(author)
+            m_author += f'\t\t<li>{author}</li>\n'
         for parody in doujinshi.info.parodies.split(', '):
-            m_parodies += '\t\t<li>{}</li>\n'.format(parody)
+            m_parodies += f'\t\t<li>{parody}</li>\n'
         for characters in doujinshi.info.characters.split(', '):
-            m_characters += '\t\t<li>{}</li>\n'.format(characters)
+            m_characters += f'\t\t<li>{characters}</li>\n'
         for tags in doujinshi.info.tags.split(', '):
-            m_tags += '\t\t<li>{}</li>\n'.format(tags)
+            m_tags += f'\t\t<li>{tags}</li>\n'
 
         if sys.version_info < (3, 0):
             m_titleen = m_titleen.encode('utf-8')

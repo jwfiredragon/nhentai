@@ -1,19 +1,17 @@
-#!/usr/bin/env python2.7
 # coding: utf-8
-
 import sys
 import signal
 import platform
-import time
+import urllib3.exceptions
 
 from nhentai import constant
 from nhentai.cmdline import cmd_parser, banner
-from nhentai.parser import doujinshi_parser, search_parser, print_doujinshi, favorites_parser
+from nhentai.parser import doujinshi_parser, search_parser, legacy_search_parser, print_doujinshi, favorites_parser
 from nhentai.doujinshi import Doujinshi
 from nhentai.downloader import Downloader
 from nhentai.logger import logger
 from nhentai.constant import BASE_URL
-from nhentai.utils import generate_html, generate_cbz, generate_main_html, generate_pdf, generate_metadata_file, \
+from nhentai.utils import generate_html, generate_cbz, generate_main_html, generate_pdf, generate_metadata_file, generate_index, \
     paging, check_cookie, signal_handler, DB
 
 
@@ -22,19 +20,19 @@ def main():
 
     if sys.version_info < (3, 0, 0):
         logger.error('nhentai now only support Python 3.x')
-        exit(1)
+        sys.exit(1)
 
     options = cmd_parser()
-    logger.info('Using mirror: {0}'.format(BASE_URL))
+    logger.info(f'Using mirror: {BASE_URL}')
 
     # CONFIG['proxy'] will be changed after cmd_parser()
     if constant.CONFIG['proxy']['http']:
-        logger.info('Using proxy: {0}'.format(constant.CONFIG['proxy']['http']))
+        logger.info(f'Using proxy: {constant.CONFIG["proxy"]["http"]}')
 
     if not constant.CONFIG['template']:
         constant.CONFIG['template'] = 'default'
 
-    logger.info('Using viewer template "{}"'.format(constant.CONFIG['template']))
+    logger.info(f'Using viewer template "{constant.CONFIG["template"]}"')
 
     # check your cookie
     check_cookie()
@@ -53,10 +51,12 @@ def main():
 
     elif options.keyword:
         if constant.CONFIG['language']:
-            logger.info('Using default language: {0}'.format(constant.CONFIG['language']))
-            options.keyword += ' language:{}'.format(constant.CONFIG['language'])
-        doujinshis = search_parser(options.keyword, sorting=options.sorting, page=page_list,
-                                   is_page_all=options.page_all)
+            logger.info(f'Using default language: {constant.CONFIG["language"]}')
+            options.keyword += f' language:{constant.CONFIG["language"]}'
+
+        _search_parser = legacy_search_parser if options.legacy else search_parser
+        doujinshis = _search_parser(options.keyword, sorting=options.sorting, page=page_list,
+                                    is_page_all=options.page_all)
 
     elif not doujinshi_ids:
         doujinshi_ids = options.id
@@ -71,24 +71,17 @@ def main():
 
         doujinshi_ids = list(set(map(int, doujinshi_ids)) - set(data))
 
-    if doujinshi_ids:
-        for i, id_ in enumerate(doujinshi_ids):
-            if options.delay:
-                time.sleep(options.delay)
-
-            doujinshi_info = doujinshi_parser(id_)
-
-            if doujinshi_info:
-                doujinshi_list.append(Doujinshi(name_format=options.name_format, **doujinshi_info))
-
-            if (i + 1) % 10 == 0:
-                logger.info('Progress: %d / %d' % (i + 1, len(doujinshi_ids)))
-
     if not options.is_show and not options.gen_index_f and not options.gen_index:
         downloader = Downloader(path=options.output_dir, size=options.threads,
                                 timeout=options.timeout, delay=options.delay)
 
-        for doujinshi in doujinshi_list:
+        for doujinshi_id in doujinshi_ids:
+            doujinshi_info = doujinshi_parser(doujinshi_id)
+            if doujinshi_info:
+                doujinshi = Doujinshi(name_format=options.name_format, **doujinshi_info)
+            else:
+                continue
+
             if not options.dryrun:
                 doujinshi.downloader = downloader
                 doujinshi.download(regenerate_cbz=options.regenerate_cbz)
@@ -112,17 +105,24 @@ def main():
             generate_main_html(options.output_dir)
 
         if not platform.system() == 'Windows':
-            logger.log(15, '🍻 All done.')
+            logger.log(16, '🍻 All done.')
         else:
-            logger.log(15, 'All done.')
+            logger.log(16, 'All done.')
 
     elif options.is_show:
-        [doujinshi.show() for doujinshi in doujinshi_list]
+        for doujinshi_id in doujinshi_ids:
+            doujinshi_info = doujinshi_parser(doujinshi_id)
+            if doujinshi_info:
+                doujinshi = Doujinshi(name_format=options.name_format, **doujinshi_info)
+            else:
+                continue
+            doujinshi.show()
 
     else:
         generate_index(options.output_dir, doujinshi_list)
 
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 signal.signal(signal.SIGINT, signal_handler)
 
 if __name__ == '__main__':
