@@ -20,9 +20,10 @@ class DoujinshiInfo(dict):
 
     def __getattr__(self, item):
         try:
-            return dict.__getitem__(self, item)
+            ret = dict.__getitem__(self, item)
+            return ret if ret else 'Unknown'
         except KeyError:
-            return ''
+            return 'Unknown'
 
 
 class Doujinshi(object):
@@ -38,8 +39,12 @@ class Doujinshi(object):
         self.url = f'{DETAIL_URL}/{self.id}'
         self.info = DoujinshiInfo(**kwargs)
 
+        ag_value = self.info.groups if self.info.artists == 'Unknown' else self.info.artists
+        name_format = name_format.replace('%ag', format_filename(ag_value))
+
         name_format = name_format.replace('%i', format_filename(str(self.id).zfill(6)))
         name_format = name_format.replace('%a', format_filename(self.info.artists))
+        name_format = name_format.replace('%g', format_filename(self.info.groups))
 
         name_format = name_format.replace('%t', format_filename(self.name))
         name_format = name_format.replace('%p', format_filename(self.pretty_name))
@@ -47,15 +52,16 @@ class Doujinshi(object):
         self.filename = format_filename(name_format, 255, True)
 
         self.table = [
-            ["Parodies", self.info.parodies],
-            ["Doujinshi", self.name],
-            ["Subtitle", self.info.subtitle],
-            ["Characters", self.info.characters],
-            ["Authors", self.info.artists],
-            ["Languages", self.info.languages],
-            ["Tags", self.info.tags],
-            ["URL", self.url],
-            ["Pages", self.pages],
+            ['Parodies', self.info.parodies],
+            ['Doujinshi', self.name],
+            ['Subtitle', self.info.subtitle],
+            ['Characters', self.info.characters],
+            ['Authors', self.info.artists],
+            ['Groups', self.info.groups],
+            ['Languages', self.info.languages],
+            ['Tags', self.info.tags],
+            ['URL', self.url],
+            ['Pages', self.pages],
         ]
 
     def __repr__(self):

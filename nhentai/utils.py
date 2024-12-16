@@ -157,7 +157,7 @@ def generate_main_html(output_dir='./'):
         logger.warning('No index.html found, --gen-main paused.')
         return
     try:
-        data = main.format(STYLES=css, SCRIPTS=js, PICTURE=image_html, COUNT='{count} items')
+        data = main.format(STYLES=css, SCRIPTS=js, PICTURE=image_html, COUNT=f'{count} items')
         with open('./main.html', 'wb') as f:
             f.write(data.encode('utf-8'))
         shutil.copy(os.path.dirname(__file__) + '/viewer/logo.png', './')
@@ -291,11 +291,11 @@ def generate_metadata_file(output_dir, table, doujinshi_obj=None):
 
     f = open(os.path.join(doujinshi_dir, 'info.txt'), 'w', encoding='utf-8')
 
-    fields = ['TITLE', 'ORIGINAL TITLE', 'AUTHOR', 'ARTIST', 'CIRCLE', 'SCANLATOR',
+    fields = ['TITLE', 'ORIGINAL TITLE', 'AUTHOR', 'ARTIST', 'GROUPS', 'CIRCLE', 'SCANLATOR',
               'TRANSLATOR', 'PUBLISHER', 'DESCRIPTION', 'STATUS', 'CHAPTERS', 'PAGES',
               'TAGS', 'TYPE', 'LANGUAGE', 'RELEASED', 'READING DIRECTION', 'CHARACTERS',
               'SERIES', 'PARODY', 'URL']
-    special_fields = ['PARODY', 'TITLE', 'ORIGINAL TITLE', 'CHARACTERS', 'AUTHOR',
+    special_fields = ['PARODY', 'TITLE', 'ORIGINAL TITLE', 'CHARACTERS', 'AUTHOR', 'GROUPS',
                       'LANGUAGE', 'TAGS', 'URL', 'PAGES']
 
     for i in range(len(fields)):
