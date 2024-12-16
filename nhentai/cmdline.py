@@ -73,6 +73,8 @@ def cmd_parser():
                       help='search doujinshi by keyword')
     parser.add_option('--favorites', '-F', action='store_true', dest='favorites',
                       help='list or download your favorites')
+    parser.add_option('--artist', '-a', action='store', dest='artist',
+                      help='list doujinshi by artist name')
 
     # page options
     parser.add_option('--page-all', dest='page_all', action='store_true', default=False,
@@ -116,10 +118,12 @@ def cmd_parser():
                       help='generate index.html for gallery IDs')
     parser.add_option('--gen-index-f', type='string', dest='gen_index_f', action='store',
                       help='generate index.html for gallery IDs in file')
+    parser.add_option('--move-to-folder', dest='move_to_folder', action='store_true', default=False,
+                      help='remove files in doujinshi dir then move new file to folder when generated CBZ or PDF file')
     parser.add_option('--meta', dest='generate_metadata', action='store_true',
                       help='generate a metadata file in doujinshi format')
-    parser.add_option('--regenerate-cbz', dest='regenerate_cbz', action='store_true', default=False,
-                      help='regenerate the cbz file if exists')
+    parser.add_option('--regenerate', dest='regenerate', action='store_true', default=False,
+                      help='regenerate the cbz or pdf file if exists')
 
     # nhentai options
     parser.add_option('--cookie', type='str', dest='cookie', action='store',
@@ -222,12 +226,12 @@ def cmd_parser():
             _ = [i.strip() for i in f.readlines()]
             args.id = set(int(i) for i in _ if i.isdigit())
 
-    if (args.is_download or args.is_show) and not args.id and not args.keyword and not args.favorites:
+    if (args.is_download or args.is_show) and not args.id and not args.keyword and not args.favorites and not args.artist:
         logger.critical('Doujinshi id(s) are required for downloading')
         parser.print_help()
         sys.exit(1)
 
-    if not args.keyword and not args.id and not args.favorites:
+    if not args.keyword and not args.id and not args.favorites and not args.artist:
         parser.print_help()
         sys.exit(1)
 

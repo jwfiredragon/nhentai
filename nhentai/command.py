@@ -1,4 +1,6 @@
 # coding: utf-8
+import os
+import shutil
 import sys
 import signal
 import platform
@@ -11,8 +13,8 @@ from nhentai.doujinshi import Doujinshi
 from nhentai.downloader import Downloader
 from nhentai.logger import logger
 from nhentai.constant import BASE_URL
-from nhentai.utils import generate_html, generate_cbz, generate_main_html, generate_pdf, generate_metadata_file, generate_index, \
-    paging, check_cookie, signal_handler, DB
+from nhentai.utils import generate_html, generate_doc, generate_main_html, generate_metadata_file, generate_index, \
+    paging, check_cookie, signal_handler, DB, move_to_folder
 
 
 def main():
@@ -39,6 +41,7 @@ def main():
 
     doujinshis = []
     doujinshi_ids = []
+    doujinshi_list = []
 
     page_list = paging(options.page)
 
@@ -46,7 +49,7 @@ def main():
         if not options.is_download:
             logger.warning('You do not specify --download option')
 
-        doujinshis = favorites_parser(page=page_list)
+        doujinshis = favorites_parser() if options.page_all else favorites_parser(page=page_list)
 
     elif options.keyword:
         if constant.CONFIG['language']:
@@ -56,6 +59,10 @@ def main():
         _search_parser = legacy_search_parser if options.legacy else search_parser
         doujinshis = _search_parser(options.keyword, sorting=options.sorting, page=page_list,
                                     is_page_all=options.page_all)
+
+    elif options.artist:
+        doujinshis = legacy_search_parser(options.artist, sorting=options.sorting, page=page_list,
+                                          is_page_all=options.page_all, type_='ARTIST')
 
     elif not doujinshi_ids:
         doujinshi_ids = options.id
@@ -71,7 +78,7 @@ def main():
         doujinshi_ids = list(set(map(int, doujinshi_ids)) - set(data))
 
     if not options.is_show and not options.gen_index_f and not options.gen_index:
-        downloader = Downloader(path=options.output_dir, size=options.threads,
+        downloader = Downloader(path=options.output_dir, threads=options.threads,
                                 timeout=options.timeout, delay=options.delay)
 
         for doujinshi_id in doujinshi_ids:
@@ -83,22 +90,40 @@ def main():
 
             if not options.dryrun:
                 doujinshi.downloader = downloader
-                doujinshi.download(regenerate_cbz=options.regenerate_cbz)
+
+                if doujinshi.check_if_need_download(options):
+                    doujinshi.download()
+                else:
+                    logger.info(f'Skip download doujinshi because a PDF/CBZ file exists of doujinshi {doujinshi.name}')
+                    continue
 
             if options.generate_metadata:
-                table = doujinshi.table
-                generate_metadata_file(options.output_dir, table, doujinshi)
+                generate_metadata_file(options.output_dir, doujinshi)
 
             if options.is_save_download_history:
                 with DB() as db:
                     db.add_one(doujinshi.id)
 
-            if not options.is_nohtml and not options.is_cbz and not options.is_pdf:
+            if not options.is_nohtml:
                 generate_html(options.output_dir, doujinshi, template=constant.CONFIG['template'])
-            elif options.is_cbz:
-                generate_cbz(options.output_dir, doujinshi, options.rm_origin_dir)
-            elif options.is_pdf:
-                generate_pdf(options.output_dir, doujinshi, options.rm_origin_dir)
+
+            if options.is_cbz:
+                generate_doc('cbz', options.output_dir, doujinshi, options.regenerate)
+
+            if options.is_pdf:
+                generate_doc('pdf', options.output_dir, doujinshi, options.regenerate)
+
+            if options.move_to_folder:
+                if options.is_cbz:
+                    move_to_folder(options.output_dir, doujinshi, 'cbz')
+                if options.is_pdf:
+                    move_to_folder(options.output_dir, doujinshi, 'pdf')
+
+            if options.rm_origin_dir:
+                if options.move_to_folder:
+                    logger.critical('You specified both --move-to-folder and --rm-origin-dir options, '
+                                    'you will not get anything :(')
+                shutil.rmtree(os.path.join(options.output_dir, doujinshi.filename), ignore_errors=True)
 
         if options.main_viewer:
             generate_main_html(options.output_dir)

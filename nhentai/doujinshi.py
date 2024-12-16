@@ -1,4 +1,5 @@
 # coding: utf-8
+import os
 
 from tabulate import tabulate
 
@@ -11,6 +12,7 @@ EXT_MAP = {
     'j': 'jpg',
     'p': 'png',
     'g': 'gif',
+    'w': 'webp',
 }
 
 
@@ -27,11 +29,12 @@ class DoujinshiInfo(dict):
 
 
 class Doujinshi(object):
-    def __init__(self, name=None, pretty_name=None, id=None, img_id=None,
+    def __init__(self, name=None, pretty_name=None, id=None, favorite_counts=0, img_id=None,
                  ext='', pages=0, name_format='[%i][%a][%t]', **kwargs):
         self.name = name
         self.pretty_name = pretty_name
         self.id = id
+        self.favorite_counts = favorite_counts
         self.img_id = img_id
         self.ext = ext
         self.pages = pages
@@ -43,6 +46,7 @@ class Doujinshi(object):
         name_format = name_format.replace('%ag', format_filename(ag_value))
 
         name_format = name_format.replace('%i', format_filename(str(self.id).zfill(6)))
+        name_format = name_format.replace('%f', format_filename(str(self.favorite_counts)))
         name_format = name_format.replace('%a', format_filename(self.info.artists))
         name_format = name_format.replace('%g', format_filename(self.info.groups))
 
@@ -55,11 +59,13 @@ class Doujinshi(object):
             ['Parodies', self.info.parodies],
             ['Doujinshi', self.name],
             ['Subtitle', self.info.subtitle],
+            ['Date', self.info.date],
             ['Characters', self.info.characters],
             ['Authors', self.info.artists],
             ['Groups', self.info.groups],
             ['Languages', self.info.languages],
             ['Tags', self.info.tags],
+            ['Favorite Counts', self.info.favorite_counts],
             ['URL', self.url],
             ['Pages', self.pages],
         ]
@@ -70,7 +76,35 @@ class Doujinshi(object):
     def show(self):
         logger.info(f'Print doujinshi information of {self.id}\n{tabulate(self.table)}')
 
-    def download(self, regenerate_cbz=False):
+    def check_if_need_download(self, options):
+        base_path = os.path.join(self.downloader.path, self.filename)
+
+        # regenerate, re-download
+        if options.regenerate:
+            return True
+
+        # pdf or cbz file exists, skip re-download
+        # doujinshi directory may not exist b/c of --rm-origin-dir option set.
+        # user should pass --regenerate option to get back origin dir.
+        ret_pdf = ret_cbz = None
+        if options.is_pdf:
+            ret_pdf = os.path.exists(f'{base_path}.pdf') or os.path.exists(f'{base_path}/{self.filename}.pdf')
+
+        if options.is_cbz:
+            ret_cbz = os.path.exists(f'{base_path}.cbz') or os.path.exists(f'{base_path}/{self.filename}.cbz')
+
+        ret = list(filter(lambda s: s is not None, [ret_cbz, ret_pdf]))
+        if ret and all(ret):
+            return False
+
+        # doujinshi directory doesn't exist, re-download
+        if not (os.path.exists(base_path) and os.path.isdir(base_path)):
+            return True
+
+        # fallback
+        return True
+
+    def download(self):
         logger.info(f'Starting to download doujinshi: {self.name}')
         if self.downloader:
             download_queue = []
@@ -80,9 +114,10 @@ class Doujinshi(object):
             for i in range(1, min(self.pages, len(self.ext)) + 1):
                 download_queue.append(f'{IMAGE_URL}/{self.img_id}/{i}.{self.ext[i-1]}')
 
-            self.downloader.start_download(download_queue, self.filename, regenerate_cbz=regenerate_cbz)
+            return self.downloader.start_download(download_queue, self.filename)
         else:
             logger.critical('Downloader has not been loaded')
+            return False
 
 
 if __name__ == '__main__':

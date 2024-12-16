@@ -141,13 +141,17 @@ def doujinshi_parser(id_, counter=0):
     title = doujinshi_info.find('h1').text
     pretty_name = doujinshi_info.find('h1').find('span', attrs={'class': 'pretty'}).text
     subtitle = doujinshi_info.find('h2')
+    favorite_counts = str(doujinshi_info.find('span', class_='nobold').find('span', class_='count'))
+    if favorite_counts is None:
+        favorite_counts = '0'
 
     doujinshi['name'] = title
     doujinshi['pretty_name'] = pretty_name
     doujinshi['subtitle'] = subtitle.text if subtitle else ''
+    doujinshi['favorite_counts'] = favorite_counts.strip()
 
     doujinshi_cover = html.find('div', attrs={'id': 'cover'})
-    img_id = re.search('/galleries/([0-9]+)/cover.(jpg|png|gif)$',
+    img_id = re.search('/galleries/([0-9]+)/cover.(jpg|png|gif|webp)$',
                        doujinshi_cover.a.img.attrs['data-src'])
 
     ext = []
@@ -156,8 +160,8 @@ def doujinshi_parser(id_, counter=0):
         ext.append(ext_name)
 
     if not img_id:
-        logger.critical('Tried yo get image id failed')
-        sys.exit(1)
+        logger.critical(f'Tried yo get image id failed of id: {id_}')
+        return None
 
     doujinshi['img_id'] = img_id.group(1)
     doujinshi['ext'] = ext
@@ -240,13 +244,21 @@ def print_doujinshi(doujinshi_list):
     print(tabulate(tabular_data=doujinshi_list, headers=headers, tablefmt='rst'))
 
 
-def legacy_search_parser(keyword, sorting, page, is_page_all=False):
+def legacy_search_parser(keyword, sorting, page, is_page_all=False, type_='SEARCH'):
     logger.info(f'Searching doujinshis of keyword {keyword}')
     result = []
 
+    if type_ not in ('SEARCH', 'ARTIST', ):
+        raise ValueError('Invalid type')
+
     if is_page_all:
-        response = request('get', url=constant.LEGACY_SEARCH_URL,
-                           params={'q': keyword, 'page': 1, 'sort': sorting}).content
+        if type_ == 'SEARCH':
+            response = request('get', url=constant.LEGACY_SEARCH_URL,
+                               params={'q': keyword, 'page': 1, 'sort': sorting}).content
+        else:
+            url = constant.ARTIST_URL + keyword + '/' + ('' if sorting == 'recent' else sorting)
+            response = request('get', url=url, params={'page': 1}).content
+
         html = BeautifulSoup(response, 'lxml')
         pagination = html.find(attrs={'class': 'pagination'})
         last_page = pagination.find(attrs={'class': 'last'})
@@ -258,8 +270,13 @@ def legacy_search_parser(keyword, sorting, page, is_page_all=False):
 
     for p in pages:
         logger.info(f'Fetching page {p} ...')
-        response = request('get', url=constant.LEGACY_SEARCH_URL,
-                           params={'q': keyword, 'page': p, 'sort': sorting}).content
+        if type_ == 'SEARCH':
+            response = request('get', url=constant.LEGACY_SEARCH_URL,
+                               params={'q': keyword, 'page': p, 'sort': sorting}).content
+        else:
+            url = constant.ARTIST_URL + keyword + '/' + ('' if sorting == 'recent' else sorting)
+            response = request('get', url=url, params={'page': p}).content
+
         if response is None:
             logger.warning(f'No result in response in page {p}')
             continue
@@ -313,7 +330,9 @@ def search_parser(keyword, sorting, page, is_page_all=False):
 
         for row in response['result']:
             title = row['title']['english']
-            title = title[:85] + '..' if len(title) > 85 else title
+            title = title[:constant.CONFIG['max_filename']] + '..' if \
+                len(title) > constant.CONFIG['max_filename'] else title
+
             result.append({'id': row['id'], 'title': title})
 
         not_exists_persist = False

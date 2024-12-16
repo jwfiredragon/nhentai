@@ -1,23 +1,18 @@
 # coding: utf-
 
-import multiprocessing
-import signal
-
-import sys
 import os
-import requests
-import time
+import asyncio
+import httpx
 import urllib3.exceptions
+import math
 
 from urllib.parse import urlparse
 from nhentai import constant
 from nhentai.logger import logger
-from nhentai.parser import request
-from nhentai.utils import Singleton
+from nhentai.utils import Singleton, async_request
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-semaphore = multiprocessing.Semaphore(1)
 
 
 class NHentaiImageNotExistException(Exception):
@@ -40,59 +35,69 @@ def download_callback(result):
 
 
 class Downloader(Singleton):
-
-    def __init__(self, path='', size=5, timeout=30, delay=0):
-        self.size = size
+    def __init__(self, path='', threads=5, timeout=30, delay=0):
+        self.threads = threads
         self.path = str(path)
         self.timeout = timeout
         self.delay = delay
+        self.folder = None
+        self.semaphore = None
 
-    def download(self, url, folder='', filename='', retried=0, proxy=None):
-        if self.delay:
-            time.sleep(self.delay)
+    async def fiber(self, tasks):
+        self.semaphore = asyncio.Semaphore(self.threads)
+        for completed_task in asyncio.as_completed(tasks):
+            try:
+                result = await completed_task
+                logger.info(f'{result[1]} download completed')
+            except Exception as e:
+                logger.error(f'An error occurred: {e}')
+
+    async def _semaphore_download(self, *args, **kwargs):
+        async with self.semaphore:
+            return await self.download(*args, **kwargs)
+
+    async def download(self, url, folder='', filename='', retried=0, proxy=None, length=0):
         logger.info(f'Starting to download {url} ...')
+
+        if self.delay:
+            await asyncio.sleep(self.delay)
+
         filename = filename if filename else os.path.basename(urlparse(url).path)
         base_filename, extension = os.path.splitext(filename)
+        filename = base_filename.zfill(length) + extension
 
-        save_file_path = os.path.join(folder, base_filename.zfill(3) + extension)
+        save_file_path = os.path.join(self.folder, filename)
+
         try:
             if os.path.exists(save_file_path):
-                logger.warning(f'Ignored exists file: {save_file_path}')
+                logger.warning(f'Skipped download: {save_file_path} already exists')
                 return 1, url
 
-            response = None
-            with open(save_file_path, "wb") as f:
-                i = 0
-                while i < 10:
-                    try:
-                        response = request('get', url, stream=True, timeout=self.timeout, proxies=proxy)
-                        if response.status_code != 200:
-                            raise NHentaiImageNotExistException
+            response = await async_request('GET', url, timeout=self.timeout, proxies=proxy)
 
-                    except NHentaiImageNotExistException as e:
-                        raise e
+            if response.status_code != 200:
+                path = urlparse(url).path
+                for mirror in constant.IMAGE_URL_MIRRORS:
+                    logger.info(f"Try mirror: {mirror}{path}")
+                    mirror_url = f'{mirror}{path}'
+                    response = await async_request('GET', mirror_url, timeout=self.timeout, proxies=proxy)
+                    if response.status_code == 200:
+                        break
 
-                    except Exception as e:
-                        i += 1
-                        if not i < 10:
-                            logger.critical(str(e))
-                            return 0, None
-                        continue
+            if not await self.save(filename, response):
+                logger.error(f'Can not download image {url}')
+                return 1, None
 
-                    break
-
-                length = response.headers.get('content-length')
-                if length is None:
-                    f.write(response.content)
-                else:
-                    for chunk in response.iter_content(2048):
-                        f.write(chunk)
-
-        except (requests.HTTPError, requests.Timeout) as e:
+        except (httpx.HTTPStatusError, httpx.TimeoutException, httpx.ConnectError) as e:
             if retried < 3:
-                logger.warning(f'Warning: {e}, retrying({retried}) ...')
-                return 0, self.download(url=url, folder=folder, filename=filename,
-                                        retried=retried+1, proxy=proxy)
+                logger.info(f'Download {filename} failed, retrying({retried + 1}) times...')
+                return await self.download(
+                    url=url,
+                    folder=folder,
+                    filename=filename,
+                    retried=retried + 1,
+                    proxy=proxy,
+                )
             else:
                 return 0, None
 
@@ -102,6 +107,8 @@ class Downloader(Singleton):
 
         except Exception as e:
             import traceback
+
+            logger.error(f"Exception type: {type(e)}")
             traceback.print_stack()
             logger.critical(str(e))
             return 0, None
@@ -111,17 +118,27 @@ class Downloader(Singleton):
 
         return 1, url
 
-    def start_download(self, queue, folder='', regenerate_cbz=False):
-        if not isinstance(folder, (str, )):
+    async def save(self, save_file_path, response) -> bool:
+        if response is None:
+            logger.error('Error: Response is None')
+            return False
+        save_file_path = os.path.join(self.folder, save_file_path)
+        with open(save_file_path, 'wb') as f:
+            if response is not None:
+                length = response.headers.get('content-length')
+                if length is None:
+                    f.write(response.content)
+                else:
+                    async for chunk in response.aiter_bytes(2048):
+                        f.write(chunk)
+        return True
+
+    def start_download(self, queue, folder='') -> bool:
+        if not isinstance(folder, (str,)):
             folder = str(folder)
 
         if self.path:
             folder = os.path.join(self.path, folder)
-
-        if os.path.exists(folder + '.cbz'):
-            if not regenerate_cbz:
-                logger.warning(f'CBZ file "{folder}.cbz" exists, ignored download request')
-                return
 
         logger.info(f'Doujinshi will be saved at "{folder}"')
         if not os.path.exists(folder):
@@ -129,32 +146,19 @@ class Downloader(Singleton):
                 os.makedirs(folder)
             except EnvironmentError as e:
                 logger.critical(str(e))
+        self.folder = folder
 
-        else:
-            logger.warning(f'Path "{folder}" already exist.')
+        if os.getenv('DEBUG', None) == 'NODOWNLOAD':
+            # Assuming we want to continue with rest of process.
+            return True
 
-        queue = [(self, url, folder, constant.CONFIG['proxy']) for url in queue]
+        digit_length = len(str(len(queue)))
+        coroutines = [
+            self._semaphore_download(url, filename=os.path.basename(urlparse(url).path), length=digit_length)
+            for url in queue
+        ]
 
-        pool = multiprocessing.Pool(self.size, init_worker)
-        [pool.apply_async(download_wrapper, args=item) for item in queue]
+        # Prevent coroutines infection
+        asyncio.run(self.fiber(coroutines))
 
-        pool.close()
-        pool.join()
-
-
-def download_wrapper(obj, url, folder='', proxy=None):
-    if sys.platform == 'darwin' or semaphore.get_value():
-        return Downloader.download(obj, url=url, folder=folder, proxy=proxy)
-    else:
-        return -3, None
-
-
-def init_worker():
-    signal.signal(signal.SIGINT, subprocess_signal)
-
-
-def subprocess_signal(sig, frame):
-    if semaphore.acquire(timeout=1):
-        logger.warning('Ctrl-C pressed, exiting sub processes ...')
-
-    raise KeyboardInterrupt
+        return True
