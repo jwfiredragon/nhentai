@@ -109,7 +109,7 @@ def cmd_parser():
                         help='store a proxy, for example: -p "http://127.0.0.1:1080"')
     parser.add_argument('--file', '-f', type=str, dest='file',
                         help='read gallery IDs from file.')
-    parser.add_argument('--format', type=str, dest='name_format', default='[%i][%a][%t]',
+    parser.add_argument('--format', type=str, dest='name_format', default='%i',
                         help='format the saved folder name')
 
     parser.add_argument('--no-filename-padding', action='store_true', dest='no_filename_padding',
@@ -133,7 +133,7 @@ def cmd_parser():
     parser.add_argument('--pdf', '-P', dest='is_pdf', action='store_true',
                         help='generate PDF file')
 
-    parser.add_argument('--meta', dest='generate_metadata', action='store_true', default=False,
+    parser.add_argument('--meta', dest='generate_metadata', action='store_true', default=True,
                         help='generate a metadata file in doujinshi format')
     parser.add_argument('--update-meta', dest='update_metadata', action='store_true', default=False,
                         help='update the metadata file of a doujinshi, update CBZ metadata if exists')
