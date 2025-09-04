@@ -11,6 +11,7 @@ import requests
 import sqlite3
 import urllib.parse
 from typing import Tuple
+from curl_cffi import requests
 
 from nhentai import constant
 from nhentai.constant import PATH_SEPARATOR
@@ -36,7 +37,7 @@ def get_headers():
     return headers
 
 def request(method, url, **kwargs):
-    session = requests.Session()
+    session = requests.Session(impersonate="chrome110")
     session.headers.update(get_headers())
 
     if not kwargs.get('proxies', None):
