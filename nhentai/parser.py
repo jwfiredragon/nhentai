@@ -92,13 +92,27 @@ def favorites_parser(page=None):
         page_range_list = range(1, pages + 1)
 
     for page in page_range_list:
-        try:
-            logger.info(f'Getting doujinshi ids of page {page}')
-            resp = request('get', f'{constant.FAV_URL}?page={page}').content
+        logger.info(f'Getting doujinshi ids of page {page}')
 
-            result.extend(_get_title_and_id(resp))
-        except Exception as e:
-            logger.error(f'Error: {e}, continue')
+        i = 0
+        while i <= constant.RETRY_TIMES + 1:
+            i += 1
+            if i > 3:
+                logger.error(f'Failed to get favorites at page {page} after 3 times retried, skipped')
+                break
+
+            try:
+                resp = request('get', f'{constant.FAV_URL}?page={page}').content
+                temp_result = _get_title_and_id(resp)
+                if not temp_result:
+                    logger.warning(f'Failed to get favorites at page {page}, retrying ({i} times) ...')
+                    continue
+                else:
+                    result.extend(temp_result)
+                    break
+
+            except Exception as e:
+                logger.warning(f'Error: {e}, retrying ({i} times) ...')
 
     return result
 
@@ -141,23 +155,28 @@ def doujinshi_parser(id_, counter=0):
     title = doujinshi_info.find('h1').text
     pretty_name = doujinshi_info.find('h1').find('span', attrs={'class': 'pretty'}).text
     subtitle = doujinshi_info.find('h2')
-    favorite_counts = str(doujinshi_info.find('span', class_='nobold').find('span', class_='count'))
-    if favorite_counts is None:
-        favorite_counts = '0'
+    favorite_counts = doujinshi_info.find('span', class_='nobold').text.strip('(').strip(')')
 
     doujinshi['name'] = title
     doujinshi['pretty_name'] = pretty_name
     doujinshi['subtitle'] = subtitle.text if subtitle else ''
-    doujinshi['favorite_counts'] = favorite_counts.strip()
+    doujinshi['favorite_counts'] = int(favorite_counts) if favorite_counts and favorite_counts.isdigit() else 0
 
     doujinshi_cover = html.find('div', attrs={'id': 'cover'})
-    img_id = re.search('/galleries/([0-9]+)/cover.(jpg|png|gif|webp)$',
-                       doujinshi_cover.a.img.attrs['data-src'])
+    # img_id = re.search('/galleries/([0-9]+)/cover.(jpg|png|gif|webp)$',
+    #                   doujinshi_cover.a.img.attrs['data-src'])
+
+    # fix cover.webp.webp
+    img_id = re.search(r'/galleries/(\d+)/cover(\.webp|\.jpg|\.png)?\.\w+$', doujinshi_cover.a.img.attrs['data-src'])
 
     ext = []
     for i in html.find_all('div', attrs={'class': 'thumb-container'}):
-        _, ext_name = os.path.basename(i.img.attrs['data-src']).rsplit('.', 1)
-        ext.append(ext_name)
+        base_name = os.path.basename(i.img.attrs['data-src'])
+        ext_name = base_name.split('.')
+        if len(ext_name) == 3:
+            ext.append(ext_name[1])
+        else:
+            ext.append(ext_name[-1])
 
     if not img_id:
         logger.critical(f'Tried yo get image id failed of id: {id_}')
@@ -185,53 +204,6 @@ def doujinshi_parser(id_, counter=0):
     time_field = doujinshi_info.find('time')
     if time_field.has_attr('datetime'):
         doujinshi['date'] = time_field['datetime']
-    return doujinshi
-
-
-def legacy_doujinshi_parser(id_):
-    if not isinstance(id_, (int,)) and (isinstance(id_, (str,)) and not id_.isdigit()):
-        raise Exception(f'Doujinshi id({id_}) is not valid')
-
-    id_ = int(id_)
-    logger.info(f'Fetching information of doujinshi id {id_}')
-    doujinshi = dict()
-    doujinshi['id'] = id_
-    url = f'{constant.DETAIL_URL}/{id_}'
-    i = 0
-    while 5 > i:
-        try:
-            response = request('get', url).json()
-        except Exception as e:
-            i += 1
-            if not i < 5:
-                logger.critical(str(e))
-                sys.exit(1)
-            continue
-        break
-
-    doujinshi['name'] = response['title']['english']
-    doujinshi['subtitle'] = response['title']['japanese']
-    doujinshi['img_id'] = response['media_id']
-    doujinshi['ext'] = ''.join([i['t'] for i in response['images']['pages']])
-    doujinshi['pages'] = len(response['images']['pages'])
-
-    # gain information of the doujinshi
-    needed_fields = ['character', 'artist', 'language', 'tag', 'parody', 'group', 'category']
-    for tag in response['tags']:
-        tag_type = tag['type']
-        if tag_type in needed_fields:
-            if tag_type == 'tag':
-                if tag_type not in doujinshi:
-                    doujinshi[tag_type] = {}
-
-                tag['name'] = tag['name'].replace(' ', '-')
-                tag['name'] = tag['name'].lower()
-                doujinshi[tag_type][tag['name']] = tag['id']
-            elif tag_type not in doujinshi:
-                doujinshi[tag_type] = tag['name']
-            else:
-                doujinshi[tag_type] += ', ' + tag['name']
-
     return doujinshi
 
 
@@ -305,7 +277,7 @@ def search_parser(keyword, sorting, page, is_page_all=False):
         i = 0
 
         logger.info(f'Searching doujinshis using keywords "{keyword}" on page {p}{total}')
-        while i < 3:
+        while i < constant.RETRY_TIMES:
             try:
                 url = request('get', url=constant.SEARCH_URL, params={'query': keyword,
                                                                       'page': p, 'sort': sorting}).url

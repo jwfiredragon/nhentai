@@ -7,13 +7,13 @@ import platform
 import urllib3.exceptions
 
 from nhentai import constant
-from nhentai.cmdline import cmd_parser, banner
+from nhentai.cmdline import cmd_parser, banner, write_config
 from nhentai.parser import doujinshi_parser, search_parser, legacy_search_parser, print_doujinshi, favorites_parser
 from nhentai.doujinshi import Doujinshi
-from nhentai.downloader import Downloader
+from nhentai.downloader import Downloader, CompressedDownloader
 from nhentai.logger import logger
 from nhentai.constant import BASE_URL
-from nhentai.utils import generate_html, generate_doc, generate_main_html, generate_metadata_file, generate_index, \
+from nhentai.utils import generate_html, generate_doc, generate_main_html, generate_metadata, generate_index, \
     paging, check_cookie, signal_handler, DB, move_to_folder
 
 
@@ -28,8 +28,13 @@ def main():
     logger.info(f'Using mirror: {BASE_URL}')
 
     # CONFIG['proxy'] will be changed after cmd_parser()
-    if constant.CONFIG['proxy']['http']:
-        logger.info(f'Using proxy: {constant.CONFIG["proxy"]["http"]}')
+    if constant.CONFIG['proxy']:
+        if isinstance(constant.CONFIG['proxy'], dict):
+            constant.CONFIG['proxy'] = constant.CONFIG['proxy'].get('http', '')
+            logger.warning(f'Update proxy config to: {constant.CONFIG["proxy"]}')
+            write_config()
+
+        logger.info(f'Using proxy: {constant.CONFIG["proxy"]}')
 
     if not constant.CONFIG['template']:
         constant.CONFIG['template'] = 'default'
@@ -45,11 +50,14 @@ def main():
 
     page_list = paging(options.page)
 
+    if options.retry:
+        constant.RETRY_TIMES = int(options.retry)
+
     if options.favorites:
         if not options.is_download:
             logger.warning('You do not specify --download option')
 
-        doujinshis = favorites_parser() if options.page_all else favorites_parser(page=page_list)
+        doujinshis = favorites_parser(page=page_list) if options.page else favorites_parser()
 
     elif options.keyword:
         if constant.CONFIG['language']:
@@ -73,13 +81,19 @@ def main():
 
     if options.is_save_download_history:
         with DB() as db:
-            data = map(int, db.get_all())
+            data = set(map(int, db.get_all()))
 
         doujinshi_ids = list(set(map(int, doujinshi_ids)) - set(data))
+        logger.info(f'New doujinshis account: {len(doujinshi_ids)}')
+
+    if options.zip:
+        options.is_nohtml = True
 
     if not options.is_show and not options.gen_index_f and not options.gen_index:
-        downloader = Downloader(path=options.output_dir, threads=options.threads,
-                                timeout=options.timeout, delay=options.delay)
+        downloader = (CompressedDownloader if options.zip else Downloader)(path=options.output_dir, threads=options.threads,
+                                timeout=options.timeout, delay=options.delay,
+                                exit_on_fail=options.exit_on_fail,
+                                no_filename_padding=options.no_filename_padding)
 
         for doujinshi_id in doujinshi_ids:
             doujinshi_info = doujinshi_parser(doujinshi_id)
@@ -88,17 +102,15 @@ def main():
             else:
                 continue
 
-            if not options.dryrun:
-                doujinshi.downloader = downloader
+            doujinshi.downloader = downloader
 
-                if doujinshi.check_if_need_download(options):
-                    doujinshi.download()
-                else:
-                    logger.info(f'Skip download doujinshi because a PDF/CBZ file exists of doujinshi {doujinshi.name}')
-                    continue
+            if doujinshi.check_if_need_download(options):
+                doujinshi.download()
+            else:
+                logger.info(f'Skip download doujinshi because a PDF/CBZ file exists of doujinshi {doujinshi.name}')
 
             if options.generate_metadata:
-                generate_metadata_file(options.output_dir, doujinshi)
+                generate_metadata(options.output_dir, doujinshi)
 
             if options.is_save_download_history:
                 with DB() as db:
